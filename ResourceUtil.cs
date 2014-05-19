@@ -26,7 +26,9 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 using DebugTools;
+using ConfigTools;
 using UnityEngine;
 
 namespace ResourceTools
@@ -69,6 +71,16 @@ namespace ResourceTools
             }
         }
 
+
+        public static Material GetEmbeddedMaterial(string resource)
+        {
+            string contents = string.Empty;
+
+            if (!GetEmbeddedContents(resource, out contents))
+                return null;
+
+            return new Material(contents);
+        }
 
 
         /// <summary>
@@ -158,8 +170,23 @@ namespace ResourceTools
 
 
 
+        /// <summary>
+        /// Look for a material in this order:
+        ///     1) Embedded shader
+        ///     2) File relative to same dir as DLL
+        ///     3) Shader lib
+        /// </summary>
+        /// <param name="resourceName"></param>
+        /// <param name="backups"></param>
+        /// <returns></returns>
         public static Material LocateMaterial(string resourceName, params string[] backups)
         {
+            if (string.IsNullOrEmpty(resourceName))
+            {
+                Log.Error("LocateMaterial: invalid resource name");
+                return null;
+            }
+
             var possibilities = new Dictionary<string /* resource name */, string /* what to display in log */>();
             possibilities.Add(resourceName, string.Format("LocateMaterial: Creating shader material '{0}'", resourceName));
 
@@ -171,27 +198,44 @@ namespace ResourceTools
                 Log.Verbose(resource.Value);
 
                 // check embedded resources
-                //var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(resource.Key);
-
                 string contents;
 
                 if (GetEmbeddedContents(resource.Key, out contents))
                 {
+                    Log.Write("Found '{0}' as embedded resource stream.", resource.Key);
                     return new Material(contents);
-
-                    // found in our resources.  Extract and create
-                    //try
-                    //{
-                    //    return new Material(new System.IO.StreamReader(stream).ReadToEnd());
-                    //}
-                    //catch (Exception e)
-                    //{
-                    //    Log.Error("LocateMaterial: Failed to generate '{0}', although it was found!  Exception: {1}", resource.Key, e);
-                    //    // bad news!  continue looking
-                    //}
                 }
                 else
                 {
+                    // not embedded. Try as a filename in our dir
+                    string ourDir = ConfigUtil.GetDllDirectoryPath();
+                    if (resource.Key[0] != '/')
+                        ourDir += "/";
+
+                    if (File.Exists(ourDir + resource.Key))
+                    {
+                        string filename = ourDir + resource.Key;
+
+                        Log.Write("Possibly found '{0}' as file path {1}", resource.Key, filename);
+
+                        try
+                        {
+                            contents = System.IO.File.ReadAllText(filename);
+                            var mat = new Material(contents);
+
+                            if (mat != null)
+                            {
+                                Log.Write("Created material from file {0}", resource.Key);
+                                return mat;
+                            }
+                        } catch (Exception)
+                        {
+                        }
+
+                        Log.Error("{0} looks like file path, but is not a valid material source. Continuing search", filename);
+                    }
+
+
                     // not in our resources.  Check Shader lib
                     var shader = Shader.Find(resource.Key);
 
@@ -217,5 +261,37 @@ namespace ResourceTools
             Log.Error("LocateMaterial: Failed to find any appropriate shader!");
             return null;
         }
+
+        public static void FlipTexture(Texture2D tex, bool horizontal, bool vertical)
+        {
+            var originalPixels = tex.GetPixels32();
+            Color32[] newPixels = new Color32[originalPixels.Length];
+
+            Log.Debug("FlipTexture: target pixel count {0}", originalPixels.Length);
+            Log.Debug("Flip settings: horizontal {0}, vertical {1}", horizontal, vertical);
+
+            for (int y = 0; y < tex.height; ++y)
+                for (int x = 0; x < tex.width; ++x)
+                {
+                    int index = (vertical ? tex.height - y - 1: y) * tex.width + (horizontal ? tex.width - x - 1: x);
+                    newPixels[y * tex.width + x] = originalPixels[index];
+                }
+
+            tex.SetPixels32(newPixels);
+            tex.Apply();
+        }
+
+        //public static IsAssemblyLoaded(string FullName)
+        //{
+
+        //}
+
+        //public static Type GetAssembly(string FullName)
+        //{
+        //    //Type assembly = AssemblyLoader.loadedAssemblies.Select(a => a.assembly.GetExportedTypes())
+        //    //    .SelectMany(t => t)
+        //    //    .FirstOrDefault(t => t.FullName == FullName);
+        //    AssemblyLoader.loadedAssemblies
+        //}
     }
 }

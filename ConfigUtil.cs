@@ -23,6 +23,8 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
  * ***************************************************************************/
 using System;
+using System.IO;
+using System.Reflection;
 using UnityEngine;
 using DebugTools;
 
@@ -30,6 +32,31 @@ namespace ConfigTools
 {
     public static class ConfigUtil
     {
+        public static T ParseEnum<T>(ConfigNode node, string valueName, T defaultValue)
+        {
+            try
+            {
+                var value = node.GetValue(valueName);
+
+                if (string.IsNullOrEmpty(value))
+                {
+                    Log.Error("Settings: Value enum '{0}' does not exist in given ConfigNode", valueName);
+                    return defaultValue;
+                }
+
+                var values = Enum.GetValues(typeof(T));
+
+                return (T)Enum.Parse(typeof(T), value, true);
+            }
+            catch (Exception e)
+            {
+                Log.Error("Settings: Failed to parse value '{0}' from ConfigNode, resulted in an exception {1}", valueName, e);
+            }
+
+            return defaultValue;
+        }
+
+
         public static T Parse<T>(ConfigNode node, string valueName, T defaultValue)
         {
             try
@@ -72,6 +99,20 @@ namespace ConfigTools
             }
 
             return defaultValue;
+        }
+
+
+        /// <summary>
+        /// Returns an absolute path to the directory this DLL resides in
+        /// ex: C:/program files (x86)/steam/steamapps/common/kerbal space program/GameData/NavBallTextureExport
+        /// </summary>
+        /// <returns></returns>
+        public static string GetDllDirectoryPath()
+        {
+            string codeBase = Assembly.GetExecutingAssembly().CodeBase;
+            UriBuilder uri = new UriBuilder(codeBase);
+            string path = Uri.UnescapeDataString(uri.Path);
+            return Path.GetDirectoryName(path);
         }
     }
 }
