@@ -26,7 +26,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using UnityEngine;
-using DebugTools;
+using LogTools;
 
 namespace ConfigTools
 {
@@ -101,6 +101,25 @@ namespace ConfigTools
             return defaultValue;
         }
 
+        public static string ReadString(ConfigNode node, string valueName, string defaultValue = "")
+        {
+            if (node == null || !node.HasValue(valueName)) return defaultValue;
+
+            return node.GetValue(valueName);
+        }
+
+        public static bool ParseRect(string strRect, out Rect rect)
+        {
+            rect = new Rect();
+
+            // format: (x:0.00, y:0.00, width:0.25, height:0.25)
+            if (!strRect.StartsWith("Rect("))
+            {
+                Log.Error("ParseRect: '{0}' does not appear to be a rect string", strRect);
+            }
+
+            return true;
+        }
 
         /// <summary>
         /// Returns an absolute path to the directory this DLL resides in

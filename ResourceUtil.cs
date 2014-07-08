@@ -27,7 +27,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Text;
 using System.Linq;
-using DebugTools;
+using LogTools;
 using ConfigTools;
 using UnityEngine;
 
@@ -293,5 +293,30 @@ namespace ResourceTools
         //    //    .FirstOrDefault(t => t.FullName == FullName);
         //    AssemblyLoader.loadedAssemblies
         //}
+
+        /// <summary>
+        /// Make a readable copy of the target texture.  If a texture isn't
+        /// readable, we can't use functions like EncodeToPNG on it which is
+        /// naturally going to be a problem when we're trying to save a copy
+        /// </summary>
+        /// <param name="original"></param>
+        /// <returns></returns>
+        public static Texture2D CreateReadable(this UnityEngine.Texture2D original)
+        {
+            Texture2D finalTexture = new Texture2D(original.width, original.height);
+
+            // nbTexture isn't read or writeable ... we'll have to get tricksy
+            var rt = RenderTexture.GetTemporary(original.width, original.height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB, 1);
+            Graphics.Blit(original, rt);
+
+            RenderTexture.active = rt;
+
+            finalTexture.ReadPixels(new Rect(0, 0, finalTexture.width, finalTexture.height), 0, 0);
+
+            RenderTexture.active = null;
+            RenderTexture.ReleaseTemporary(rt);
+
+            return finalTexture;
+        }
     }
 }

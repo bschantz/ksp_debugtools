@@ -68,6 +68,7 @@ namespace ImprovedAddonLoader
             EveryScene = ~0
         }
 
+
         public bool runOnce;
         public Startup scenes;
 
@@ -271,7 +272,11 @@ namespace ImprovedAddonLoader
                 }
             }
 
-            Debug.Log(string.Format("{1} finished; created {0} addons", counter, _identifier));
+            if (counter > 0)
+            {
+                Debug.Log(string.Format("{1} finished; created {0} addons", counter, _identifier));
+            }
+            else Debug.Log(string.Format("{0} finished; no addons created.", _identifier));
         }
     }
 }

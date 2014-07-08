@@ -24,14 +24,40 @@ OTHER DEALINGS IN THE SOFTWARE.
  * ***************************************************************************/
 #define VERBOSE
 using System;
-//using System.Collections.Generic;
-//using System.Linq;
-//using System.Text;
 
-namespace DebugTools
+namespace LogTools
 {
-    public class Log
+    internal class Log
     {
+        [Flags]
+        internal enum LogMask : int
+        {
+            Normal = 1 << 0,
+            Debug = 1 << 1,
+            Verbose = 1 << 2,
+            Performance = 1 << 3,
+            Warning = 1 << 4,
+            Error = 1 << 5,
+
+            All = ~0,
+            None = 0
+        }
+
+        //public const int Normal = (int)LogMask.Normal;
+        //public const int Debug = (int)LogMask.Debug;
+        //public const int Verbose = (int)LogMask.Verbose;
+        //public const int Performance = (int)LogMask.Performance;
+        //public const int Warning = (int)LogMask.Warning;
+        //public const int Error = (int)LogMask.Error;
+        //public const int All = (int)LogMask.All;
+        //public const int None = (int)LogMask.None;
+
+        // default logging levels
+#if DEBUG
+        internal static LogMask Level = LogMask.All;
+#else
+        internal static LogMask level = (LogMask.Normal | LogMask.Warning | LogMask.Error);
+#endif
 
         #region Assembly/Class Information
         /// <summary>
@@ -48,65 +74,197 @@ namespace DebugTools
         #endregion
 
 
-        private static String FormatMessage(String msg)
+        #region Main debug functions
+
+        private static String FormatMessage(string msg)
         {
-            return String.Format("{1}, {0}", msg, _AssemblyName);
+            return string.Format("{1}, {0}", msg, _AssemblyName);
         }
 
-        [System.Diagnostics.Conditional("DEBUG")]
-        internal static void Debug(String Message, params object[] strParams)
+        private static bool ShouldLog(LogMask messageType)
         {
-            Write(Message, strParams);
-        }
-
-        [System.Diagnostics.Conditional("DEBUG")]
-        internal static void Debug(String message)
-        {
-            Write(message);
+            return (Log.Level & messageType) != 0;
         }
 
 
-        internal static void Verbose(String Message, params object[] strParams)
+
+
+        internal static void Write(string message, LogMask level)
         {
-            Verbose(string.Format(Message, strParams));
+            if (ShouldLog(level))
+            {
+                string fmsg = FormatMessage(message);
+                if ((level & LogMask.Error) != 0)
+                {
+                    UnityEngine.Debug.LogError(fmsg);
+                }
+                else if ((level & LogMask.Warning) != 0)
+                {
+                    UnityEngine.Debug.LogWarning(fmsg);
+                }
+                else if ((level & LogMask.Normal) != 0)
+                {
+                    UnityEngine.Debug.Log(fmsg);
+                } 
+                else if ((level & LogMask.Performance) != 0)
+                {
+                    UnityEngine.Debug.Log(FormatMessage(string.Format("[PERF] {0}", message)));
+                }
+                else UnityEngine.Debug.Log(fmsg); 
+            }
         }
 
-        internal static void Verbose(String message)
+
+        internal static void Write(string message, LogMask level, params object[] strParams)
         {
-#if VERBOSE
-                Write("(info): " + message);
-#endif
+            if (ShouldLog(level))
+                Write(string.Format(message, strParams), level);
         }
 
-        internal static void Write(String Message, params object[] strParams)
+        internal static void SaveInto(ConfigNode parentNode)
         {
-            Write(String.Format(Message, strParams));
+            var node = parentNode.AddNode(new ConfigNode("LogSettings"));
+            node.AddValue("LogMask", Log.Level);
+
+            var levelNames = Enum.GetNames(typeof(LogMask));
+            var levelValues = Enum.GetValues(typeof(LogMask));
+
+            node.AddValue("// Bit index", "message type");
+
+            for (int i = 0; i < levelNames.Length; ++i)
+            {
+                node.AddValue(string.Format("// Bit {i}", i), levelValues.GetValue(i));
+            }
+
+            Debug("Log.SaveInto = {0}", node.ToString());
         }
 
-        internal static void Write(String Message)
+        internal static void LoadFrom(ConfigNode parentNode)
         {
-            UnityEngine.Debug.Log(FormatMessage(Message));
+            if (parentNode == null || !parentNode.HasNode("LogSettings"))
+            {
+                Error("Log.LoadFrom failed, did not find LogSettings in: {0}", parentNode != null ? parentNode.ToString() : "<null ConfigNode>");
+            }
+            else
+            {
+                var node = parentNode.GetNode("LogSettings");
+
+                try
+                {
+                    if (!node.HasValue("LogMask")) throw new Exception("No LogMask value in ConfigNode");
+
+                    string mask = node.GetValue("LogMask");
+                    int maskResult = 0;
+
+                    if (int.TryParse(mask, out maskResult))
+                    {
+                        if (maskResult == 0)
+                            Warning("Log.LoadFrom: Log disabled");
+
+                        Level = (LogMask)maskResult;
+
+                        Log.Normal("Loaded LogMask = {0} from ConfigNode", Level.ToString());
+                    }
+                    else Error("Log.LoadFrom:  LogMask value '{0}' cannot be converted to LogMask", mask);
+                } catch (Exception e)
+                {
+                    Warning("Log.LoadFrom failed with exception: {0}", e);
+                }
+            }
+        }
+        #endregion
+
+
+        internal static void Debug(string message, params object[] strParams)
+        {
+            Write(message, LogMask.Debug, strParams);
         }
 
-        internal static void Warning(String message, params object[] strParams)
+        internal static void Normal(string message, params object[] strParams)
         {
-            Warning(String.Format(message, strParams));
+            Write(message, LogMask.Normal, strParams);
         }
 
-        internal static void Warning(String message)
+        internal static void Warning(string message, params object[] strParams)
         {
-            UnityEngine.Debug.LogWarning(FormatMessage(message));
+            Write(message, LogMask.Warning, strParams);
         }
 
-        internal static void Error(String message, params object[] strParams)
+        internal static void Error(string message, params object[] strParams)
         {
-            Error(String.Format(message, strParams));
+            Write(message, LogMask.Error, strParams);
         }
 
-        internal static void Error(String message)
+        internal static void Verbose(string message, params object[] strParams)
         {
-            UnityEngine.Debug.LogError(FormatMessage(message));
+            Write(message, LogMask.Verbose, strParams);
         }
+
+        internal static void Performance(string message, params object[] strParams)
+        {
+            Write(message, LogMask.Performance, strParams);
+        }
+
+        
+        // Since I use Write a lot, Log.Write needs a non-critical version
+        // it'll just be normal output
+        internal static void Write(string message, params object[] strParams)
+        {
+            Write(message, LogMask.Normal, strParams);
+        }
+
+        //internal static void Debug(String Message, params object[] strParams)
+        //{
+        //    if (ShouldLog(LogMask.Debug))
+        //    Write(Message, strParams);
+        //}
+
+        //internal static void Debug(String message)
+        //{
+        //    if (ShouldLog(LogMask.Debug))
+        //    Write(message);
+        //}
+
+
+        //internal static void Verbose(String Message, params object[] strParams)
+        //{
+        //    Verbose(string.Format(Message, strParams));
+        //}
+
+        //internal static void Verbose(String message)
+        //{
+        //    Write("(info): " + message);
+        //}
+
+        //internal static void Write(String Message, params object[] strParams)
+        //{
+        //    Write(String.Format(Message, strParams));
+        //}
+
+        //internal static void Write(String Message)
+        //{
+        //    UnityEngine.Debug.Log(FormatMessage(Message));
+        //}
+
+        //internal static void Warning(String message, params object[] strParams)
+        //{
+        //    Warning(String.Format(message, strParams));
+        //}
+
+        //internal static void Warning(String message)
+        //{
+        //    UnityEngine.Debug.LogWarning(FormatMessage(message));
+        //}
+
+        //internal static void Error(String message, params object[] strParams)
+        //{
+        //    Error(String.Format(message, strParams));
+        //}
+
+        //internal static void Error(String message)
+        //{
+        //    UnityEngine.Debug.LogError(FormatMessage(message));
+        //}
 
     }
 }
