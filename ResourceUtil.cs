@@ -27,11 +27,9 @@ using System.IO;
 using System.Collections.Generic;
 using System.Text;
 using System.Linq;
-using LogTools;
-using ConfigTools;
 using UnityEngine;
 
-namespace ResourceTools
+namespace ReeperCommon
 {
     public static class ResourceUtil
     {
@@ -43,6 +41,18 @@ namespace ResourceTools
         /// <param name="name"></param>
         public static bool SaveToDisk(this UnityEngine.Texture2D texture, string pathInGameData)
         {
+            // texture format - needs to be ARGB32, RGBA32, RGB24 or Alpha8
+            var validFormats = new List<TextureFormat>{ TextureFormat.Alpha8, 
+                                                        TextureFormat.RGB24,
+                                                        TextureFormat.RGBA32,
+                                                        TextureFormat.ARGB32};
+
+            if (!validFormats.Contains(texture.format))
+            {
+                Log.Write("Texture to be saved has invalid format. Converting to a valid format.");
+                return CreateReadable(texture).SaveToDisk(pathInGameData);
+            }
+
             if (pathInGameData.StartsWith("/"))
                 pathInGameData = pathInGameData.Substring(1);
 
@@ -134,13 +144,13 @@ namespace ResourceTools
         /// <param name="resource"></param>
         /// <param name="contents"></param>
         /// <returns></returns>
-        public static bool GetEmbeddedContents(string resource, out string contents)
+        public static bool GetEmbeddedContents(string resource, System.Reflection.Assembly assembly, out string contents)
         {
             contents = string.Empty;
 
             try
             {
-                var stream = GetEmbeddedContentsStream(resource);
+                var stream = GetEmbeddedContentsStream(resource, assembly);
 
                 if (stream != null)
                 {
@@ -162,10 +172,40 @@ namespace ResourceTools
         }
 
 
+        public static bool GetEmbeddedContents(string resource, out string contents)
+        {
+            return GetEmbeddedContents(resource, System.Reflection.Assembly.GetExecutingAssembly(), out contents);
+        }
+
+
+        public static byte[] GetEmbeddedContentsBytes(string resource, System.Reflection.Assembly assembly)
+        {
+            Stream contents = GetEmbeddedContentsStream(resource, assembly);
+            if (contents != null && contents.Length > 0) 
+            {
+                byte[] data = new byte[contents.Length];
+
+                int read = 0;
+                var ms = new MemoryStream();
+
+                while ((read = contents.Read(data, 0, data.Length)) > 0)
+                    ms.Write(data, 0, read);
+
+                return data;
+
+            } else return null;
+        }
+
+
+        public static Stream GetEmbeddedContentsStream(string resource, System.Reflection.Assembly assembly)
+        {
+            return assembly.GetManifestResourceStream(resource);
+            //return System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(resource);
+        }
 
         public static Stream GetEmbeddedContentsStream(string resource)
         {
-            return System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(resource);
+            return GetEmbeddedContentsStream(resource, System.Reflection.Assembly.GetExecutingAssembly());
         }
 
 

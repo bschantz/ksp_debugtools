@@ -26,13 +26,12 @@ using System;
 using System.IO;
 using System.Reflection;
 using UnityEngine;
-using LogTools;
 
-namespace ConfigTools
+namespace ReeperCommon
 {
     public static class ConfigUtil
     {
-        public static T ParseEnum<T>(ConfigNode node, string valueName, T defaultValue)
+        public static T ParseEnum<T>(this ConfigNode node, string valueName, T defaultValue)
         {
             try
             {
@@ -57,7 +56,7 @@ namespace ConfigTools
         }
 
 
-        public static T Parse<T>(ConfigNode node, string valueName, T defaultValue)
+        public static T Parse<T>(this ConfigNode node, string valueName, T defaultValue)
         {
             try
             {
@@ -101,25 +100,25 @@ namespace ConfigTools
             return defaultValue;
         }
 
-        public static string ReadString(ConfigNode node, string valueName, string defaultValue = "")
+        public static string ReadString(this ConfigNode node, string valueName, string defaultValue = "")
         {
             if (node == null || !node.HasValue(valueName)) return defaultValue;
 
             return node.GetValue(valueName);
         }
 
-        public static bool ParseRect(string strRect, out Rect rect)
-        {
-            rect = new Rect();
+        //public static bool ParseRect(string strRect, out Rect rect)
+        //{
+        //    rect = new Rect();
 
-            // format: (x:0.00, y:0.00, width:0.25, height:0.25)
-            if (!strRect.StartsWith("Rect("))
-            {
-                Log.Error("ParseRect: '{0}' does not appear to be a rect string", strRect);
-            }
+        //    // format: (x:0.00, y:0.00, width:0.25, height:0.25)
+        //    if (!strRect.StartsWith("Rect("))
+        //    {
+        //        Log.Error("ParseRect: '{0}' does not appear to be a rect string", strRect);
+        //    }
 
-            return true;
-        }
+        //    return true;
+        //}
 
         /// <summary>
         /// Returns an absolute path to the directory this DLL resides in
@@ -133,5 +132,74 @@ namespace ConfigTools
             string path = Uri.UnescapeDataString(uri.Path);
             return Path.GetDirectoryName(path);
         }
+
+
+        public static Rect ReadRect(this ConfigNode node, string name, Rect defaultValue = new Rect())
+        {
+            if (!node.HasValue(name))
+            {
+                Log.Error("ConfigUtil.ReadRect: value '{0}' does not exist", name);
+            }
+            else
+            {
+                try
+                {
+                    var parsed = KSPUtil.ParseVector4(node.GetValue(name));
+                    return new Rect(parsed.x, parsed.y, parsed.z, parsed.w);
+                } catch (Exception e)
+                {
+                    Log.Error("ConfigUtil.ReadRect: exception while reading value '{0}': {1}", name, e);
+                }
+            }
+
+            return defaultValue;
+        }
+
+
+        public static Vector4 AsVector(this UnityEngine.Rect rect)
+        {
+            return new Vector4(rect.x, rect.y, rect.width, rect.height);
+        }
+
+        // Works but turned out to be unnecessary
+        //public static void LoadFieldsFromConfig(this BaseFieldList fields, ConfigNode node)
+        //{
+        //    for (int i = 0; i < fields.Count; ++i)
+        //    {
+        //        BaseField field = fields[i];
+
+        //        if (node.HasValue(field.name))
+        //        {
+        //            Log.Write("type of {0} = {1}", field.name, field.FieldInfo.FieldType.Name);
+        //            var ft = field.FieldInfo.FieldType;
+
+        //            try {
+        //                Log.Debug("Creating params");
+        //                object[] methodParams = new object[] { node, field.name, Activator.CreateInstance(ft) };
+
+        //                Log.Debug("Invoking method");
+
+        //                var parseMethod = typeof(ConfigUtil).GetMethod("Parse");
+        //                if (parseMethod == null) Log.Error("Failed to find parse method!");
+
+        //                var parseT = parseMethod.MakeGenericMethod(ft);
+        //                if (parseT == null) Log.Error("Failed to create generic method!");
+
+        //                var result = typeof(ConfigUtil).GetMethod("Parse").MakeGenericMethod(ft).Invoke(null, methodParams);
+
+        //                Log.Debug("Setting value");
+        //                field.SetValue(result, field.host);
+        //                field.SetOriginalValue();
+
+        //                Log.Write("Set '{0}' to value '{1}'", field.name, result.ToString());
+        //            } 
+        //            catch (Exception e)
+        //            {
+        //                Log.Error("Exception occurred in LoadFieldsFromConfig: {0}", e);
+        //            }
+        //        }
+        //        else Log.Debug("LoadFieldsFromConfig: Node does not have a value for '{0}'", field.name);
+        //    }
+        //}
     }
 }

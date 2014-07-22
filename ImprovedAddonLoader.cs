@@ -79,42 +79,8 @@ namespace ImprovedAddonLoader
         }
     }
 
-    /// <summary>
-    /// KSPAddon with equality checking using an additional type parameter. Fixes the issue where AddonLoader prevents multiple start-once addons with the same start scene.
-    /// By Majiir
-    /// </summary>
-    public class KSPAddonFixed : KSPAddon, IEquatable<KSPAddonFixed>
-    {
-        private readonly Type type;
 
-        public KSPAddonFixed(KSPAddon.Startup startup, bool once, Type type)
-            : base(startup, once)
-        {
-            this.type = type;
-        }
-
-        public override bool Equals(object obj)
-        {
-            if (obj.GetType() != this.GetType()) { return false; }
-            return Equals((KSPAddonFixed)obj);
-        }
-
-        public bool Equals(KSPAddonFixed other)
-        {
-            if (this.once != other.once) { return false; }
-            if (this.startup != other.startup) { return false; }
-            if (this.type != other.type) { return false; }
-            return true;
-        }
-
-        public override int GetHashCode()
-        {
-            return this.startup.GetHashCode() ^ this.once.GetHashCode() ^ this.type.GetHashCode();
-        }
-    }
-
-    // note: this needs to be KSPAddonFixed; don't change it
-    [KSPAddonFixed(KSPAddon.Startup.Instantly, true, typeof(CustomAddonLoader))]
+    [KSPAddon(KSPAddon.Startup.Instantly, true)]
     internal class CustomAddonLoader : MonoBehaviour
     {
         // What's improved? The KSPAddon.Startup is now a bitmask so you can
@@ -263,7 +229,7 @@ namespace ImprovedAddonLoader
                 // should this addon be initialized in current scene?
                 if ((addon.Scenes & mask) != 0)
                 {
-                    Debug.Log(string.Format("ImprovedAddonLoader: Creating addon '{0}'", addon.type.Name));
+                    Debug.Log(string.Format("{1}: Creating addon '{0}'", addon.type.Name, _identifier));
                     GameObject go = new GameObject(addon.type.Name);
                     go.AddComponent(addon.type);
 

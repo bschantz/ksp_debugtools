@@ -25,7 +25,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 #define VERBOSE
 using System;
 
-namespace LogTools
+namespace ReeperCommon
 {
     internal class Log
     {
@@ -39,8 +39,8 @@ namespace LogTools
             Warning = 1 << 4,
             Error = 1 << 5,
 
-            All = ~0,
-            None = 0
+            None = 0,
+            All = ~0
         }
 
         //public const int Normal = (int)LogMask.Normal;
@@ -56,7 +56,7 @@ namespace LogTools
 #if DEBUG
         internal static LogMask Level = LogMask.All;
 #else
-        internal static LogMask level = (LogMask.Normal | LogMask.Warning | LogMask.Error);
+        internal static LogMask Level = (LogMask.Normal | LogMask.Warning | LogMask.Error);
 #endif
 
         #region Assembly/Class Information
@@ -124,16 +124,16 @@ namespace LogTools
         internal static void SaveInto(ConfigNode parentNode)
         {
             var node = parentNode.AddNode(new ConfigNode("LogSettings"));
-            node.AddValue("LogMask", Log.Level);
+            node.AddValue("LogMask", ((int)Log.Level));
 
             var levelNames = Enum.GetNames(typeof(LogMask));
             var levelValues = Enum.GetValues(typeof(LogMask));
 
             node.AddValue("// Bit index", "message type");
 
-            for (int i = 0; i < levelNames.Length; ++i)
+            for (int i = 0; i < levelNames.Length - 1 /* exclude "all" */; ++i)
             {
-                node.AddValue(string.Format("// Bit {i}", i), levelValues.GetValue(i));
+                node.AddValue(string.Format("// Bit {0}", i), levelValues.GetValue(i));
             }
 
             Debug("Log.SaveInto = {0}", node.ToString());
@@ -143,7 +143,7 @@ namespace LogTools
         {
             if (parentNode == null || !parentNode.HasNode("LogSettings"))
             {
-                Error("Log.LoadFrom failed, did not find LogSettings in: {0}", parentNode != null ? parentNode.ToString() : "<null ConfigNode>");
+                Verbose("Log.LoadFrom failed, did not find LogSettings in: {0}", parentNode != null ? parentNode.ToString() : "<null ConfigNode>");
             }
             else
             {
@@ -212,59 +212,5 @@ namespace LogTools
         {
             Write(message, LogMask.Normal, strParams);
         }
-
-        //internal static void Debug(String Message, params object[] strParams)
-        //{
-        //    if (ShouldLog(LogMask.Debug))
-        //    Write(Message, strParams);
-        //}
-
-        //internal static void Debug(String message)
-        //{
-        //    if (ShouldLog(LogMask.Debug))
-        //    Write(message);
-        //}
-
-
-        //internal static void Verbose(String Message, params object[] strParams)
-        //{
-        //    Verbose(string.Format(Message, strParams));
-        //}
-
-        //internal static void Verbose(String message)
-        //{
-        //    Write("(info): " + message);
-        //}
-
-        //internal static void Write(String Message, params object[] strParams)
-        //{
-        //    Write(String.Format(Message, strParams));
-        //}
-
-        //internal static void Write(String Message)
-        //{
-        //    UnityEngine.Debug.Log(FormatMessage(Message));
-        //}
-
-        //internal static void Warning(String message, params object[] strParams)
-        //{
-        //    Warning(String.Format(message, strParams));
-        //}
-
-        //internal static void Warning(String message)
-        //{
-        //    UnityEngine.Debug.LogWarning(FormatMessage(message));
-        //}
-
-        //internal static void Error(String message, params object[] strParams)
-        //{
-        //    Error(String.Format(message, strParams));
-        //}
-
-        //internal static void Error(String message)
-        //{
-        //    UnityEngine.Debug.LogError(FormatMessage(message));
-        //}
-
     }
 }

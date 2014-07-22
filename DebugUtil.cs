@@ -1,16 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-
-//using System.Linq;
-//using System.Text;
-using LogTools;
 using UnityEngine;
-using ResourceTools;
 
-namespace DebugTools
+namespace ReeperCommon
 {
-    public class PositionSentinel : MonoBehaviour
+    class PositionSentinel : MonoBehaviour
     {
         public Transform target;
 
@@ -23,7 +18,7 @@ namespace DebugTools
         }
     }
 
-    public class LineSentinel : MonoBehaviour
+    class LineSentinel : MonoBehaviour
     {
         private List<Transform> targets = new List<Transform>();
         LineRenderer lrender;
@@ -55,6 +50,21 @@ namespace DebugTools
 
     public static class DebugVisualizer
     {
+        public static void GenerateRandom(this UnityEngine.Texture2D tex)
+        {
+            var pixels = tex.GetPixels32();
+
+            for (int y = 0; y < tex.height; ++y)
+                for (int x = 0; x < tex.width; ++x)
+                    pixels[y * tex.width + x] = new Color(  UnityEngine.Random.Range(0f, 1f),
+                                                            UnityEngine.Random.Range(0f, 1f),
+                                                            UnityEngine.Random.Range(0f, 1f),
+                                                            UnityEngine.Random.Range(0f, 1f));
+
+            tex.SetPixels32(pixels);
+            tex.Apply();
+        }
+
         public static Texture2D Capture(this UnityEngine.Camera cam)
         {
             var oldTarget = cam.targetTexture;
@@ -128,6 +138,7 @@ namespace DebugTools
             lrender.SetColors(start, end);
             lrender.SetWidth(startWidth, endWidth);
             lrender.useWorldSpace = true;
+            lrender.material = new Material(Shader.Find("Particles/Additive"));
 
             go.SetActive(true);
 
@@ -202,29 +213,29 @@ namespace DebugTools
     {
         //public static void PrintHierarchy(this UnityEngine.Transform t, int indent = 0)
         //{
-        //    Log.Write("{0}Transform: {1}", indent > 0 ? new string('-', indent) + ">" : "", t.name);
+        //    Log.Normal("{0}Transform: {1}", indent > 0 ? new string('-', indent) + ">" : "", t.name);
 
         //    for (int i = 0; i < t.childCount; ++i)
         //        t.GetChild(i).PrintHierarchy(indent);
         //}
         private static void internal_PrintHierarchy(GameObject go, int indent)
         {
-            Log.Write("{0} Transform: {1}", indent > 0 ? new string('-', indent) + ">" : "", go.transform.name);
+            Log.Normal("{0} Transform: {1}", indent > 0 ? new string('-', indent) + ">" : "", go.transform.name);
         }
 
         private static void internal_PrintComponents(GameObject go, int indent)
         {
-            Log.Write("{0}{1} has components:", indent > 0 ? new string('-', indent) + ">" : "", go.name);
+            Log.Normal("{0}{1} has components:", indent > 0 ? new string('-', indent) + ">" : "", go.name);
 
             var components = go.GetComponents<Component>();
             foreach (var c in components)
-                Log.Write("{0}: {1}", new string('.', indent + 3) + "c", c.GetType().FullName);
+                Log.Normal("{0}: {1}", new string('.', indent + 3) + "c", c.GetType().FullName);
         }
 
         private static void internal_PrintStatus(GameObject go, int indent)
         {
             internal_PrintHierarchy(go, indent);
-            Log.Write("{0}  :status: {1}", indent > 0 ? new string('-', indent) + ">" : "", go.activeSelf ? "active" : "inactive");
+            Log.Normal("{0}  :status: {1}", indent > 0 ? new string('-', indent) + ">" : "", go.activeSelf ? "active" : "inactive");
         }
 
         public static void PrintHierarchyStatus(this UnityEngine.GameObject go)
@@ -257,7 +268,7 @@ namespace DebugTools
 
             var comps = target.GetComponents<T>().ToList();
 
-            Log.Write("Found {0} comps in {1}", comps.Count, target.name);
+            Log.Normal("Found {0} comps in {1}", comps.Count, target.name);
 
             for (int i = 0; i < target.transform.childCount; ++i)
                 comps.AddRange(FindComponents<T>(target.transform.GetChild(i).gameObject));
@@ -424,6 +435,30 @@ namespace DebugTools
                     debugTexture.SetPixel(x, y, debugColor);
 
             debugTexture.Apply();
+        }
+    }
+
+    class PerformanceTest
+    {
+        float start = 0f;
+        string name;
+
+        internal PerformanceTest(string name)
+        {
+            Log.Write("new performance test for {0}", name);
+
+            this.name = name;
+            start = Time.realtimeSinceStartup;
+        }
+
+        internal void Complete()
+        {
+            Log.Performance("{0} completed in {1} seconds", name, (Time.realtimeSinceStartup - start).ToString("{0:0.#}"));
+        }
+
+        ~PerformanceTest()
+        {
+            Complete();
         }
     }
 }
