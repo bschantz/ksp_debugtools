@@ -134,6 +134,41 @@ namespace ReeperCommon
         }
 
 
+
+        /// <summary>
+        /// This function, given a directory path, will attempt to find a Uri relative
+        /// to GameData that will be appropriate to use for the GetTexture function.
+        /// 
+        /// ex: given C:/program files (x86)/steam/steamapps/common/kerbal space program/GameData/NavBallTextureExport
+        /// result would be "NavBallTextureExport" as its parent is GameData
+        /// 
+        /// if instead it were given "GameData/foo/bar", it would return "foo/bar"
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        public static string GetRelativeToGameData(string path)
+        {
+            // just in case the path we're given doesn't actually
+            // contain a GameData folder
+            if (!path.Contains("GameData"))
+            {
+                Debug.LogError(string.Format("NBTexExport.GetRelativeToGameData: Given path '{0}' does not reside in GameData.  The plugin does not appear to be installed correctly."));
+                throw new FormatException(string.Format("GetRelativeToGameData: path '{0}' does not contain 'GameData'", path));
+            }
+
+            int index = path.IndexOf("GameData");
+
+            string relative = "";
+
+            if (path.Length > index + "GameData".Length + 1)
+                relative = path.Substring(index + "GameData".Length + 1);
+
+            Log.Debug(string.Format("Relative path: {0}", relative));
+
+            return relative;
+        }
+
+
         public static Rect ReadRect(this ConfigNode node, string name, Rect defaultValue = new Rect())
         {
             if (!node.HasValue(name))

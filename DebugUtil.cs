@@ -220,22 +220,22 @@ namespace ReeperCommon
         //}
         private static void internal_PrintHierarchy(GameObject go, int indent)
         {
-            Log.Normal("{0} Transform: {1}", indent > 0 ? new string('-', indent) + ">" : "", go.transform.name);
+            Log.Debug("{0} Transform: {1}", indent > 0 ? new string('-', indent) + ">" : "", go.transform.name);
         }
 
         private static void internal_PrintComponents(GameObject go, int indent)
         {
-            Log.Normal("{0}{1} has components:", indent > 0 ? new string('-', indent) + ">" : "", go.name);
+            Log.Debug("{0}{1} has components:", indent > 0 ? new string('-', indent) + ">" : "", go.name);
 
             var components = go.GetComponents<Component>();
             foreach (var c in components)
-                Log.Normal("{0}: {1}", new string('.', indent + 3) + "c", c.GetType().FullName);
+                Log.Debug("{0}: {1}", new string('.', indent + 3) + "c", c.GetType().FullName);
         }
 
         private static void internal_PrintStatus(GameObject go, int indent)
         {
             internal_PrintHierarchy(go, indent);
-            Log.Normal("{0}  :status: {1}", indent > 0 ? new string('-', indent) + ">" : "", go.activeSelf ? "active" : "inactive");
+            Log.Debug("{0}  :status: {1}", indent > 0 ? new string('-', indent) + ">" : "", go.activeSelf ? "active" : "inactive");
         }
 
         public static void PrintHierarchyStatus(this UnityEngine.GameObject go)
@@ -268,7 +268,7 @@ namespace ReeperCommon
 
             var comps = target.GetComponents<T>().ToList();
 
-            Log.Normal("Found {0} comps in {1}", comps.Count, target.name);
+            Log.Debug("Found {0} comps in {1}", comps.Count, target.name);
 
             for (int i = 0; i < target.transform.childCount; ++i)
                 comps.AddRange(FindComponents<T>(target.transform.GetChild(i).gameObject));
