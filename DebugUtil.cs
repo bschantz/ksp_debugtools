@@ -281,9 +281,76 @@ namespace ReeperCommon
             return FindComponents<T>(target.gameObject);
         }
 
+        public static void PrintLocalScales(this UnityEngine.Transform t)
+        {
+            GameObjectVisitor visitor = delegate(GameObject go, int indent)
+            {
+                //Log.Debug("{0} = scale {1}", indent > 0 ? new string('-', indent) + ">" : "", go.name, go.transform.localScale.FString());
+                Log.Debug("{0}{1} scale: {2}", indent > 0 ? new string('-', indent) + ">" : "", go.name, go.transform.localScale.FString());
+            };
+
+            t.gameObject.TraverseHierarchy(visitor);
+        }
+
         public static string FString(this UnityEngine.Vector3 vec, int decimals = 3)
         {
             return vec.ToString(string.Format("F{0}", decimals));
+        }
+
+        public static void CaptureSingleFrame(this UnityEngine.Camera cam, string filename)
+        {
+            cam.gameObject.AddComponent<SingleFrameCapture>().filename = filename;
+        }
+
+        public static void RenderSingleFrame(this UnityEngine.Camera cam, string filename)
+        {
+            Texture2D texture = new Texture2D(Screen.width, Screen.height, TextureFormat.ARGB32, false);
+            RenderTexture rt = RenderTexture.GetTemporary(texture.width, texture.height);
+            RenderTexture old = RenderTexture.active;
+
+            RenderTexture.active = rt;
+            cam.Render();
+
+            texture.ReadPixels(cam.pixelRect, 0, 0);
+            texture.Apply();
+
+            RenderTexture.ReleaseTemporary(rt);
+            RenderTexture.active = old;
+
+            texture.SaveToDisk(filename);
+        }
+
+
+        private class SingleFrameCapture : MonoBehaviour
+        {
+            public string filename;
+
+            void OnPostRender()
+            {
+                if (!string.IsNullOrEmpty(filename))
+                {
+                    Log.Write("SingleCapture to " + filename);
+
+                    Texture2D tex = new Texture2D(Mathf.FloorToInt(camera.pixelWidth), Mathf.FloorToInt(camera.pixelHeight), TextureFormat.ARGB32, false);
+
+                    tex.ReadPixels(camera.pixelRect, 0, 0);
+                    tex.SaveToDisk(filename);
+
+                    filename = "";
+                }
+
+                Component.Destroy(this);
+            }
+        }
+
+
+        public static Transform GetTopParent(this Transform transform)
+        {
+            Transform t = transform;
+
+            while (t.parent != null) t = t.parent;
+
+            return t;
         }
     }
 

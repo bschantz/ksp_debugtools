@@ -208,18 +208,50 @@ namespace ReeperCommon
         /// Retrieve the first camera that renders EzGui GUI elements
         /// </summary>
         /// <returns></returns>
-        public static Camera GetEzGuiCamera()
+        public static Camera GetCamera(string name)
         {
-            foreach (var cam in Camera.allCameras)
-                if ((cam.cullingMask & EZGUI_LAYER) != 0)
-                {
-                    return cam;
-                }
+            foreach (var c in Camera.allCameras)
+                if (c.name == name)
+                    return c;
 
             return null;
         }
 
+        public static Camera GetGuiCamera()
+        {
+            return GetCamera("EZGUI Cam") ?? GetCamera("UI camera"); ;
+        }
 
+
+        //public static Vector2 PixelCoordToUVCoord(Texture texture, Vector2 xy)
+        //{
+        //    return new Vector2(xy.x / ((float)texture.width - 1), 1.0f - (xy.y / ((float)texture.height - 1)));
+        //}
+
+        //public static Vector2 PixelSpaceToUVSpace(Texture texture, Vector2 xy)
+        //{
+        //    return new Vector2(xy.x / ((float)texture.width), xy.y / ((float)texture.height));
+        //}
+
+        public static Vector2 PixelCoordToUVCoord(Texture texture, Vector2 xy)
+        {
+            return new Vector2(xy.x / ((float)texture.width), 1.0f - (xy.y / ((float)texture.height)));
+        }
+
+        public static Vector2 PixelSpaceToUVSpace(Texture texture, Vector2 xy)
+        {
+            return new Vector2(xy.x / ((float)texture.width), xy.y / ((float)texture.height));
+        }
+
+        public static Vector2 PixelCoordToUVCoord(this Vector2 xy, Texture texture)
+        {
+            return PixelCoordToUVCoord(texture, xy);
+        }
+
+        public static Vector2 PixelSpaceToUVSpace(this Vector2 xy, Texture texture)
+        {
+            return PixelSpaceToUVSpace(texture, xy);
+        }
 
         /// <summary>
         /// Basic version; still needs a material and UV data
@@ -227,33 +259,98 @@ namespace ReeperCommon
         /// <param name="name"></param>
         /// <param name="screenPos"></param>
         /// <returns></returns>
-        public static UIButton CreateButton(string name, Vector2 screenPos)
-        {
-       
-            UIButton button = UIButton.Create(name, Vector3.zero);
-            button.gameObject.layer = EZGUI_LAYER;
-            button.plane = SpriteRoot.SPRITE_PLANE.XY;
-            button.SetAnchor(SpriteRoot.ANCHOR_METHOD.MIDDLE_CENTER);
-            button.renderCamera = GetEzGuiCamera();
-            
-#if DEBUG
-            if (button.renderCamera == null)
-            {
-                Log.Error("Alert: {0} does not have a render camera assigned", name);
-            } else if ((button.renderCamera.cullingMask & (1 << EZGUI_LAYER)) == 0)
-                Log.Error("Alert: {0} cullingMask does not include EzGUI layer {1}", button.renderCamera.name, EZGUI_LAYER);
+        //public static UIButton CreateButton(string name)
+        //{
 
-            // it turns out layer 25 isn't always the one ezgui is being rendered on
-            // (see flight scene ui cams)
-            //if (LayerMask.NameToLayer("EzGUI_UI") != EZGUI_LAYER)
-            //    Log.Error("GuiHelper: EzGUI layer is not correct!");
-#endif
+        //    UIButton button = UIButton.Create(name, Vector3.zero);
+        //    button.gameObject.layer = LayerMask.NameToLayer("EzGUI_UI");
+        //    button.plane = SpriteRoot.SPRITE_PLANE.XY;
+        //    button.SetAnchor(SpriteRoot.ANCHOR_METHOD.MIDDLE_CENTER);
+        //    button.renderCamera = GetEzGuiCamera();
 
-            return button;
-        }
+        //    return button;
+        //}
 
 
 
         //public static UIButton LoadButton(string 
+
+
+
+        public static UIButton CreateBlocker(Rect screenRect, float zPos = float.NaN, string name = "GuiUtil.Blocker")
+        {
+
+            var blocker = UIButton.Create("ButtonTest.Blocker", Vector3.zero);
+            //var uiCamera = Camera.allCameras.ToList().Find(c => c.name == "EZGUI Cam");
+            var uiCamera = GetGuiCamera();
+
+            if (uiCamera == null)
+            {
+                Log.Error("GuiUtil.CreateBlocker: failed to find GUI camera!");
+                Log.Write("... begin list");
+                Camera.allCameras.ToList().ForEach(c => Log.Write("Camera: {0}", c.name));
+                Log.Write("... end list");
+
+                return null;
+            }
+
+            blocker.SetAnchor(SpriteRoot.ANCHOR_METHOD.UPPER_LEFT);
+            blocker.renderCamera = uiCamera;
+            blocker.gameObject.layer = LayerMask.NameToLayer("EzGUI_UI");
+
+            var texture = new Texture2D(1, 1, TextureFormat.ARGB32, false);
+#if DEBUG
+            texture.SetPixels(new Color[] { new Color(1f, 0f, 1f, .5f) });
+#else
+            texture.SetPixels(new Color[] { Color.clear });
+#endif
+            texture.Apply();
+
+            if (float.IsNaN(zPos)) zPos = UIManager.instance.transform.position.z;
+
+            blocker.transform.position = new Vector3(screenRect.x, screenRect.y, zPos);
+            blocker.Setup(screenRect.width, screenRect.height, new Material(Shader.Find("Sprite/Vertex Colored")) { mainTexture = texture });
+
+
+            RepositionButton(blocker, screenRect);
+
+            return blocker;
+        }
+
+
+
+        public static void RepositionButton(UIButton button, Vector2 screenPos)
+        {
+            button.transform.position = new Vector3(
+                UIManager.instance.transform.position.x + screenPos.x - Screen.width * 0.5f,
+                UIManager.instance.transform.position.y - screenPos.y + Screen.height * 0.5f,
+                button.transform.position.z);
+        }
+
+        public static void RepositionButton(UIButton button, Rect screenRect)
+        {
+            button.Setup(screenRect.width, screenRect.height);
+            RepositionButton(button, new Vector2(screenRect.x, screenRect.y));
+        }
+
+        public static void Reposition(this UIButton button, Rect screenRect)
+        {
+            RepositionButton(button, screenRect);
+        }
+
+        public static void Reposition(this UIButton button, Vector2 screenPos)
+        {
+            RepositionButton(button, screenPos);
+        }
+
+        public static void Move(this UIButton button, Rect r)
+        {
+            RepositionButton(button, r);
+        }
+
+        public static void Move(this UIButton button, Vector2 pos)
+        {
+            RepositionButton(button, pos);
+        }
     }
 }

@@ -68,8 +68,6 @@ namespace ReeperCommon
                 System.IO.FileStream file = new System.IO.FileStream(KSPUtil.ApplicationRootPath + pathInGameData, System.IO.FileMode.OpenOrCreate, System.IO.FileAccess.Write);
                 System.IO.BinaryWriter writer = new System.IO.BinaryWriter(file);
                 writer.Write(texture.EncodeToPNG());
-                writer.Close();
-                file.Close();
 
                 Log.Verbose("Texture saved as {0} successfully.", pathInGameData);
                 return true;
@@ -200,12 +198,62 @@ namespace ReeperCommon
         public static Stream GetEmbeddedContentsStream(string resource, System.Reflection.Assembly assembly)
         {
             return assembly.GetManifestResourceStream(resource);
-            //return System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(resource);
         }
 
         public static Stream GetEmbeddedContentsStream(string resource)
         {
             return GetEmbeddedContentsStream(resource, System.Reflection.Assembly.GetExecutingAssembly());
+        }
+
+
+        public static Texture2D LocateTexture(string textureName, bool relativeToGameData = false)
+        {
+            if (string.IsNullOrEmpty(textureName))
+            {
+                Log.Error("LocateTexture: invalid texture name");
+                return null;
+            }
+
+            string data = string.Empty;
+            Texture2D tex;
+
+            // try as embedded resource first
+            var bytes = GetEmbeddedContentsBytes(textureName, System.Reflection.Assembly.GetExecutingAssembly());
+
+            if (bytes != null)
+            {
+                tex = new Texture2D(1, 1, TextureFormat.ARGB32, false);
+                if (tex.LoadImage(bytes))
+                    return tex;
+            }
+
+            var file = Path.GetFileNameWithoutExtension(textureName);
+            var dir = Path.GetDirectoryName(textureName);
+
+            if (file.StartsWith("/") || file.StartsWith("\\"))
+                file = file.Substring(1);
+
+            if (dir.EndsWith("/") || dir.EndsWith("\\"))
+                dir = dir.Substring(1);
+
+            // wasn't embedded, look in GameDatabase instead
+            if (textureName.StartsWith("/")) textureName = textureName.Substring(1);
+
+            if (relativeToGameData)
+            {
+                textureName = dir + "/" + file;
+            }
+            else
+            {
+                textureName = ConfigUtil.GetRelativeToGameData(ConfigUtil.GetDllDirectoryPath()) + dir + "/" + file;
+            }
+
+            tex = GameDatabase.Instance.GetTexture(textureName, false);
+
+            if (tex == null)
+                Log.Error("Failed to find texture '{0}'", textureName);
+
+            return tex;
         }
 
 
@@ -343,6 +391,9 @@ namespace ReeperCommon
         /// <returns></returns>
         public static Texture2D CreateReadable(this UnityEngine.Texture2D original)
         {
+            if (original.width == 0 || original.height == 0)
+                throw new Exception("CreateReadable: Original has zero width or height or both");
+
             Texture2D finalTexture = new Texture2D(original.width, original.height);
 
             // nbTexture isn't read or writeable ... we'll have to get tricksy
@@ -357,6 +408,59 @@ namespace ReeperCommon
             RenderTexture.ReleaseTemporary(rt);
 
             return finalTexture;
+        }
+
+
+        public static Texture2D Cutout(this UnityEngine.Texture2D source, Rect src, bool rectIsInUV = false)
+        {
+            Rect corrected = new Rect(src);
+
+            if (rectIsInUV)
+            {
+                corrected.x *= source.width;
+                corrected.width *= source.width;
+                corrected.y *= source.height;
+                corrected.height *= source.height;
+            }
+
+            return Cutout_Internal(source, corrected);
+        }
+
+
+        //public static Texture2D Cutout(this UnityEngine.Renderer renderer, Mesh mesh)
+        //{
+        //    var mat = renderer.sharedMaterial;
+        //    return ((Texture2D)mat.mainTexture).Cutout(new Rect(mat.mainTextureOffset.x, mat.mainTextureOffset.y, mat.mainTextureScale.x, mat.mainTextureScale.y), true);
+        //}
+        public static Texture2D Cutout(this UnityEngine.Renderer renderer, Rect uv)
+        {
+            return ((Texture2D)renderer.sharedMaterial.mainTexture).Cutout(uv, true);
+        }
+
+        
+        // src expected in pixel space
+        private static Texture2D Cutout_Internal(Texture2D source, Rect src, bool secondAttempt = false)
+        {
+            Texture2D result = new Texture2D(Mathf.FloorToInt(src.width), Mathf.FloorToInt(src.height), TextureFormat.ARGB32, false);
+
+            // source might not be readable
+            try
+            {
+                var pixels = source.GetPixels(Mathf.FloorToInt(src.x), Mathf.FloorToInt(src.y), Mathf.FloorToInt(src.width), Mathf.FloorToInt(src.height));
+                result.SetPixels(pixels);
+                result.Apply();
+
+                return result;
+            }
+            catch (Exception e)
+            {
+                if (secondAttempt)
+                {
+                    Log.Error("Texture2D.Cutout failed: {0}", e);
+                    return null;
+                }
+                else return Cutout_Internal(source.CreateReadable(), src, true);
+            }
         }
     }
 }

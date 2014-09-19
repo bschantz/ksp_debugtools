@@ -43,6 +43,16 @@ namespace ReeperCommon
             All = ~0
         }
 
+        //internal enum LogType
+        //{
+        //    Normal,
+        //    Debug,
+        //    Verbose,
+        //    Performance,
+        //    Warning,
+        //    Error
+        //}
+
         //public const int Normal = (int)LogMask.Normal;
         //public const int Debug = (int)LogMask.Debug;
         //public const int Verbose = (int)LogMask.Verbose;
@@ -78,7 +88,7 @@ namespace ReeperCommon
 
         private static String FormatMessage(string msg)
         {
-            return string.Format("{1}, {0}", msg, _AssemblyName);
+            return string.Format("{0}, {1}", _AssemblyName, msg);
         }
 
         private static bool ShouldLog(LogMask messageType)
@@ -96,11 +106,11 @@ namespace ReeperCommon
                 string fmsg = FormatMessage(message);
                 if ((level & LogMask.Error) != 0)
                 {
-                    UnityEngine.Debug.LogError(fmsg);
+                    UnityEngine.Debug.LogError(fmsg); 
                 }
                 else if ((level & LogMask.Warning) != 0)
                 {
-                    UnityEngine.Debug.LogWarning(fmsg);
+                    UnityEngine.Debug.LogWarning(fmsg); 
                 }
                 else if ((level & LogMask.Normal) != 0)
                 {

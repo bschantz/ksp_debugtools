@@ -55,17 +55,33 @@ namespace ReeperCommon
             return defaultValue;
         }
 
+        public static string Parse(this ConfigNode node, string valueName, string defaultValue = "")
+        {
+            try
+            {
+                if (!node.HasValue(valueName))
+                    return defaultValue;
+
+                return node.GetValue(valueName);
+            } catch (Exception e)
+            {
+                Log.Error("Settings: Failed to parse string value '{0}' from ConfigNode, resulted in an exception {1}", valueName, e);
+            }
+
+            return defaultValue;
+        }
 
         public static T Parse<T>(this ConfigNode node, string valueName, T defaultValue)
         {
             try
             {
-                var value = node.GetValue(valueName);
-                if (string.IsNullOrEmpty(value))
+                if (!node.HasValue(valueName))
                 {
                     Log.Error("Settings: Value '{0}' does not exist in given ConfigNode", valueName);
                     return defaultValue;
                 }
+
+                var value = node.GetValue(valueName);
 
                 var method = typeof(T).GetMethod("TryParse", new[] {
                     typeof (string),
@@ -107,6 +123,11 @@ namespace ReeperCommon
             return node.GetValue(valueName);
         }
 
+        //public static void Set(this ConfigNode node, string valueName, string value)
+        //{
+        //    if (!node.SetValue(valueName, value)) node.SetValue(valueName, value);
+        //}
+
         //public static bool ParseRect(string strRect, out Rect rect)
         //{
         //    rect = new Rect();
@@ -127,10 +148,11 @@ namespace ReeperCommon
         /// <returns></returns>
         public static string GetDllDirectoryPath()
         {
-            string codeBase = Assembly.GetExecutingAssembly().CodeBase;
-            UriBuilder uri = new UriBuilder(codeBase);
-            string path = Uri.UnescapeDataString(uri.Path);
-            return Path.GetDirectoryName(path);
+            //string codeBase = Assembly.GetExecutingAssembly().CodeBase;
+            //UriBuilder uri = new UriBuilder(codeBase);
+            //string path = Uri.UnescapeDataString(uri.Path);
+            //return Path.GetDirectoryName(path);
+            return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
         }
 
 
@@ -152,7 +174,7 @@ namespace ReeperCommon
             // contain a GameData folder
             if (!path.Contains("GameData"))
             {
-                Debug.LogError(string.Format("NBTexExport.GetRelativeToGameData: Given path '{0}' does not reside in GameData.  The plugin does not appear to be installed correctly."));
+                Debug.LogError(string.Format("GetRelativeToGameData: Given path '{0}' does not reside in GameData.  The plugin does not appear to be installed correctly.", path));
                 throw new FormatException(string.Format("GetRelativeToGameData: path '{0}' does not contain 'GameData'", path));
             }
 
@@ -236,5 +258,6 @@ namespace ReeperCommon
         //        else Log.Debug("LoadFieldsFromConfig: Node does not have a value for '{0}'", field.name);
         //    }
         //}
+
     }
 }
