@@ -50,20 +50,7 @@ namespace ReeperCommon
 
     public static class DebugVisualizer
     {
-        public static void GenerateRandom(this UnityEngine.Texture2D tex)
-        {
-            var pixels = tex.GetPixels32();
 
-            for (int y = 0; y < tex.height; ++y)
-                for (int x = 0; x < tex.width; ++x)
-                    pixels[y * tex.width + x] = new Color(  UnityEngine.Random.Range(0f, 1f),
-                                                            UnityEngine.Random.Range(0f, 1f),
-                                                            UnityEngine.Random.Range(0f, 1f),
-                                                            UnityEngine.Random.Range(0f, 1f));
-
-            tex.SetPixels32(pixels);
-            tex.Apply();
-        }
 
         public static Texture2D Capture(this UnityEngine.Camera cam)
         {

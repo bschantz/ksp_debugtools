@@ -299,7 +299,7 @@ namespace ReeperCommon
             blocker.gameObject.layer = LayerMask.NameToLayer("EzGUI_UI");
 
             var texture = new Texture2D(1, 1, TextureFormat.ARGB32, false);
-#if DEBUG
+#if DEBUG && DEBUG_UIBUTTON
             texture.SetPixels(new Color[] { new Color(1f, 0f, 1f, .5f) });
 #else
             texture.SetPixels(new Color[] { Color.clear });
@@ -351,6 +351,446 @@ namespace ReeperCommon
         public static void Move(this UIButton button, Vector2 pos)
         {
             RepositionButton(button, pos);
+        }
+    }
+
+    public static class UIButtonExtensions
+    {
+        public static void SetZ(this UIButton btn, float z)
+        {
+            btn.transform.position = new Vector3(btn.transform.position.x, btn.transform.position.y, z);
+        }
+    }
+
+    namespace Window
+    {
+        public delegate void WindowDelegate(bool tf);
+        public delegate void WindowClosedDelegate();
+
+        /// <summary>
+        /// A draggable window with title and optional close/lock buttons
+        /// </summary>
+        abstract class DraggableWindow : MonoBehaviour
+        {
+            // constants
+            private const int WindowButtonSize = 16;
+
+
+            // protected members, made accessible to implementors so they can be
+            // customized if necessary
+            protected UIButton backstop;                        // prevent players from accidentally clicking things in the background
+                                                                // this is a bit more reliable than InputLockManager, especially since
+
+            protected Rect windowRect = new Rect();
+            protected Rect lastRect = new Rect();
+
+            private int winId = UnityEngine.Random.Range(2444, int.MaxValue);
+
+            // window buttons
+            private static Vector2 offset = new Vector2(4f, 4f);
+            private static GUIStyle buttonStyle;
+
+
+            // events
+            public event WindowDelegate OnVisibilityChange = delegate { };
+                // note: includes visibility changes from hiding UI
+
+            public event WindowDelegate OnDraggabilityChange = delegate { };
+            public event WindowClosedDelegate OnClosed = delegate { };
+
+/******************************************************************************
+ *                    Implementation Details
+ ******************************************************************************/
+
+
+            /// <summary>
+            /// Perform any needful setup here, mainly locating textures if necessary and creating
+            /// the UIButton to backstop any clicks
+            /// </summary>
+            protected void Awake()
+            {
+                #region static style
+
+                if (buttonStyle == null)
+                {
+                    buttonStyle = new GUIStyle(GUIStyle.none);
+
+                    if (hoverBackground != null)
+                        buttonStyle.hover.background = hoverBackground;
+                }
+
+                #endregion
+
+                Log.Debug("DraggableWindow.Awake");
+                backstop = GuiUtil.CreateBlocker(windowRect, float.NaN /*GuiUtil.GetGuiCamera().nearClipPlane + 1f*/, "DraggableWindow.Backstop");
+
+                Draggable = true;
+                Visible = true;
+                ClampToScreen = true;
+                Title = "Draggable Window";
+
+
+                windowRect = Setup();
+                lastRect = new Rect(windowRect);
+
+                backstop.Move(windowRect);
+
+                backstop.transform.parent = transform; // links blocker visibility with window visibility
+
+                // check for programmer error
+                if (windowRect.width < 1f || windowRect.height < 1f)
+                    Log.Warning("DraggableWindow.Base: Derived class did not set up initial window Rect");
+
+                GameEvents.onHideUI.Add(OnHideUI);
+                GameEvents.onShowUI.Add(OnShowUI);
+
+#if DEBUG
+                // if debugging, register for our own events so we can see when they're being fired
+                //OnVisibilityChange += OnVisibilityChangedEvent;
+                //OnClosed += OnCloseEvent;
+                //OnDraggabilityChange += OnDraggabilityChangedEvent;
+#endif
+            }
+
+
+
+            /// <summary>
+            /// Called when this Component is destroyed
+            /// </summary>
+            protected virtual void OnDestroy()
+            {
+                Log.Debug("DraggableWindow.OnDestroy");
+
+                GameEvents.onHideUI.Remove(OnHideUI);
+                GameEvents.onShowUI.Remove(OnShowUI);
+            }
+
+
+
+            /// <summary>
+            /// Called whenever the GameObject this MonoBehaviour is attached to becomes active, including
+            /// right before Start
+            /// </summary>
+            protected void OnEnable()
+            {
+                Log.Debug("DraggableWindow.OnEnable");
+                OnVisibilityChange(true);
+            }
+
+
+
+            /// <summary>
+            /// Called whenever the GameObject this MonoBehaviour is attached to is disabled
+            /// </summary>
+            protected void OnDisable()
+            {
+                Log.Debug("DraggableWindow.OnDisable");
+                OnVisibilityChange(false);
+            }
+
+
+
+            /// <summary>
+            /// Show or hide the window. Equivalent to using Visible property
+            /// </summary>
+            /// <param name="tf"></param>
+            public void Show(bool tf)
+            {
+                Visible = tf;
+            }
+
+
+            private void Update() { windowRect.height = 1f; }
+
+            /// <summary>
+            /// Standard Unity method
+            /// </summary>
+            protected void OnGUI()
+            {
+                GUI.skin = Skin;
+
+                
+                windowRect = GUILayout.Window(winId, windowRect, _InternalDraw, Title);
+                
+                if (ClampToScreen)
+                    windowRect = KSPUtil.ClampRectToScreen(windowRect);
+
+                backstop.Move(windowRect);
+            }
+
+
+
+            /// <summary>
+            /// Calls the implementor draw method and then handles the window buttons (close/lock) if
+            /// applicable.
+            /// </summary>
+            /// <param name="winid"></param>
+            private void _InternalDraw(int winid)
+            {
+                DrawUI();
+
+
+                // now window buttons
+                lastRect.x = windowRect.x;
+                lastRect.y = windowRect.y;
+
+                GUILayout.BeginArea(new Rect(0f, offset.y, lastRect.width, lastRect.height));
+                lastRect = new Rect(windowRect);
+
+                GUILayout.BeginHorizontal(GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(false));
+
+                // spacer to right-justify buttons
+                GUILayout.FlexibleSpace();
+
+                // lock button
+                if (LockTexture != null && UnlockTexture != null)
+                {
+                    if (GUILayout.Button(Draggable ? UnlockTexture : LockTexture, buttonStyle))
+                    {
+                        Draggable = !Draggable;
+                        if (!string.IsNullOrEmpty(ButtonSound))
+                            AudioPlayer.Audio.Play(ButtonSound);
+
+                        Log.Debug("DraggableWindow {0}", Draggable ? "unlocked" : "locked");
+                    }
+
+
+                    // a little space to separate buttons
+                    if (CloseTexture != null)
+                        GUILayout.Space(offset.x * 0.5f);
+
+                }
+
+                // close button
+                if (CloseTexture != null)
+                    if (GUILayout.Button(CloseTexture, buttonStyle))
+                    {
+                        if (!string.IsNullOrEmpty(ButtonSound))
+                            AudioPlayer.Audio.Play(ButtonSound);
+
+                        // note: we do not set window visibility ourselves here because it might
+                        // restrict how the derived class can act; for instance, preventing the window
+                        // from closing and instead opening a confirmation popup
+                        OnCloseClick();
+                    }
+
+
+                GUILayout.Space(offset.x);
+                GUILayout.EndHorizontal();
+                GUILayout.EndArea();
+
+                if (Draggable)
+                    GUI.DragWindow();
+            }
+
+
+
+            /// <summary>
+            /// Implementations of a draggable window should set up an initial Rect here and do
+            /// any other needful setup
+            /// </summary>
+            /// <returns></returns>
+            protected abstract Rect Setup();
+
+
+
+            /// <summary>
+            /// Implementations supply this method which will be called to handle UI
+            /// </summary>
+            protected abstract void DrawUI();
+
+
+
+            /// <summary>
+            /// Implemented by derived classes; called when the close button is clicked
+            /// </summary>
+            protected abstract void OnCloseClick();
+
+
+
+            #region GameEvents
+
+            private void OnHideUI()
+            {
+                gameObject.SetActive(false);
+            }
+
+            private void OnShowUI()
+            {
+                gameObject.SetActive(Visible);
+            }
+
+            #endregion
+
+            #region properties
+
+            
+
+
+            /// <summary>
+            /// If true, the player can click on any portion of the window and drag it around
+            /// </summary>
+            public bool Draggable
+            {
+                get
+                {
+                    return draggable;
+                }
+
+                protected set
+                {
+                    if (draggable != value)
+                        OnDraggabilityChange(value);
+                    draggable = value;
+                }
+            }
+            private bool draggable = true;
+
+
+
+            /// <summary>
+            /// Shows or hides the window. Fires visibility event on change.
+            /// </summary>
+            public bool Visible
+            {
+                get
+                {
+                    return visible;
+                }
+                set
+                {
+                    if (value != visible)
+                        OnVisibilityChange(value);
+
+                    visible = value;
+                    
+                    gameObject.SetActive(visible);
+                }
+            }
+            private bool visible = true;
+
+
+
+            /// <summary>
+            /// Unity window identifier
+            /// </summary>
+            public int WindowID
+            {
+                get
+                {
+                    return winId;
+                }
+
+                private set
+                {
+                    winId = value;
+                }
+            }
+
+
+
+            /// <summary>
+            /// Sets window title
+            /// </summary>
+            public string Title { get; set; }
+
+
+
+            /// <summary>
+            /// Prevents any portion of the window from extending outside of the screen. True by default.
+            /// </summary>
+            public bool ClampToScreen { get; set; }
+
+
+
+            /// <summary>
+            /// Texture to use for the "lock" button. If null, the lock/unlock window button won't
+            /// be available.
+            /// </summary>
+            public static Texture2D LockTexture { get; set; }
+
+
+
+            /// <summary>
+            /// See LockTexture
+            /// </summary>
+            public static Texture2D UnlockTexture { get; set; }
+
+
+
+            /// <summary>
+            /// Texture to use for the window close button. If null, the window won't have one
+            /// </summary>
+            public static Texture2D CloseTexture { get; set; }
+
+
+
+            /// <summary>
+            /// Texture placed behind the Lock/Close button when moused over
+            /// </summary>
+            public static Texture2D ButtonHoverBackground
+            {
+                get
+                {
+                    return hoverBackground ?? ResourceUtil.GenerateRandom(WindowButtonSize, WindowButtonSize);
+                }
+                set
+                {
+                    hoverBackground = value;
+                    if (buttonStyle != null)
+                        buttonStyle.hover.background = value;
+                }
+            }
+            private static Texture2D hoverBackground = null;
+
+
+
+            /// <summary>
+            /// Sound to play when the lock or close button is clicked. Null or empty to play nothing.
+            /// Uses default AudioPlayer instance (usually the first one created in a scene)
+            /// </summary>
+            public static string ButtonSound { get; set; }
+
+            
+
+            /// <summary>
+            /// Skin to use for this window. Default is HighLogic.Skin
+            /// </summary>
+            public static GUISkin Skin
+            {
+                get
+                {
+                    return skin ?? HighLogic.Skin;
+                }
+                set
+                {
+                    skin = value;
+                }
+            }
+            private static GUISkin skin;
+
+            #endregion
+
+            #region debug
+
+#if DEBUG
+            private void OnCloseEvent()
+            {
+                Log.Debug("DraggableWindow.OnCloseEvent");
+            }
+
+            private void OnVisibilityChangedEvent(bool tf)
+            {
+                Log.Debug("DraggableWindow.VisibilityChangedEvent - " + tf);
+            }
+
+            private void OnDraggabilityChangedEvent(bool tf)
+            {
+                Log.Debug("DraggableWindow.DraggabilityChangedEvent - " + tf);
+            }
+#endif
+
+            #endregion
         }
     }
 }
