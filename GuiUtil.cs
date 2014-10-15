@@ -381,8 +381,8 @@ namespace ReeperCommon
             protected UIButton backstop;                        // prevent players from accidentally clicking things in the background
                                                                 // this is a bit more reliable than InputLockManager, especially since
 
-            protected Rect windowRect = new Rect();
-            protected Rect lastRect = new Rect();
+            protected Rect windowRect = new Rect();             // current window rect. If ShrinkToFitHeight is true, will constantly have a minimal height
+            protected Rect lastRect = new Rect();               // Size of the window last frame
 
             private int winId = UnityEngine.Random.Range(2444, int.MaxValue);
 
@@ -432,6 +432,7 @@ namespace ReeperCommon
 
                 windowRect = Setup();
                 lastRect = new Rect(windowRect);
+
 
                 backstop.Move(windowRect);
 
@@ -500,7 +501,11 @@ namespace ReeperCommon
             }
 
 
-            private void Update() { windowRect.height = 1f; }
+            protected void Update()
+            { 
+                if (ShrinkHeightToFit)
+                    windowRect.height = 1f; 
+            }
 
             /// <summary>
             /// Standard Unity method
@@ -646,6 +651,9 @@ namespace ReeperCommon
             }
             private bool draggable = true;
 
+
+
+            public bool ShrinkHeightToFit { get; set; }
 
 
             /// <summary>
