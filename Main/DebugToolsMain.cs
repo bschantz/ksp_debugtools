@@ -44,6 +44,65 @@ using System.Runtime.InteropServices;
 
 namespace DebugTools
 {
+
+//class JellyListener : MonoBehaviour
+//{
+//    private void MethodSentOnAnimationsGameObject()
+//    {
+//        // just forward it
+//        GetComponentInParent<JellyfishDish>().SendMessage("JellyfishOpen");
+//    }
+//}
+
+//class JellyfishDish : PartModule
+//{
+//    new Animation animation;
+
+//    public override void OnAwake()
+//    {
+//        base.OnAwake();
+//        print("Jellyfish awake");
+
+//        animation = part.FindModelAnimators().SingleOrDefault();
+//        int frames = (int)(animation.clip.length * animation.clip.frameRate);
+
+//        animation.AddClip(animation.clip, "Jellyfish", (int)(frames * 0.7) /* selected arbitrarily */, frames);
+            
+//        AnimationState jellyfish = animation["Jellyfish"];
+            
+//        jellyfish.normalizedSpeed *= 3f;
+//        jellyfish.clip.AddEvent(new AnimationEvent()
+//        {
+//            time = 0f,
+//            functionName = "MethodSentOnAnimationsGameObject"
+//        });
+
+//        jellyfish.wrapMode = WrapMode.PingPong;
+//        animation.gameObject.AddComponent<JellyListener>(); // listens for our event
+//    }
+
+//    [KSPEvent(active = true, guiActive = true, guiActiveEditor = true, guiName = "Deploy the Jellyfish")]
+//    public void JellyfishDeploy()
+//    {
+//        animation.Play("Jellyfish");
+//    }
+
+//    private void JellyfishOpen()
+//    {
+//        ScreenMessages.PostScreenMessage("Jellyfish!", .5f, (ScreenMessageStyle)UnityEngine.Random.Range(0, 3));
+//        print("JellyfishOpen event");
+//    }
+//}
+
+//[KSPAddon(KSPAddon.Startup.MainMenu, true)]
+//class InsertPartModule : MonoBehaviour
+//{
+//    private void Start()
+//    {
+//        PartLoader.getPartInfoByName("commDish").partPrefab.AddModule("JellyfishDish");
+//    }
+//}
+
     [KSPAddon(KSPAddon.Startup.Instantly, true)]
     public class CamDumper : MonoBehaviour
     {

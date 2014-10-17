@@ -383,6 +383,7 @@ namespace ReeperCommon
 
             protected Rect windowRect = new Rect();             // current window rect. If ShrinkToFitHeight is true, will constantly have a minimal height
             protected Rect lastRect = new Rect();               // Size of the window last frame
+            private GUISkin skin;
 
             private int winId = UnityEngine.Random.Range(2444, int.MaxValue);
 
@@ -435,7 +436,6 @@ namespace ReeperCommon
 
 
                 backstop.Move(windowRect);
-
                 backstop.transform.parent = transform; // links blocker visibility with window visibility
 
                 // check for programmer error
@@ -501,11 +501,14 @@ namespace ReeperCommon
             }
 
 
+
             protected void Update()
-            { 
+            {
                 if (ShrinkHeightToFit)
-                    windowRect.height = 1f; 
+                    windowRect.height = 1f;
             }
+
+
 
             /// <summary>
             /// Standard Unity method
@@ -705,6 +708,23 @@ namespace ReeperCommon
 
 
             /// <summary>
+            /// Skin to be used for this particular window instance
+            /// </summary>
+            public GUISkin Skin
+            {
+                get
+                {
+                    return skin ?? DefaultSkin;
+                }
+                set
+                {
+                    skin = value ?? DefaultSkin;
+                }
+            }
+
+
+
+            /// <summary>
             /// Prevents any portion of the window from extending outside of the screen. True by default.
             /// </summary>
             public bool ClampToScreen { get; set; }
@@ -762,20 +782,21 @@ namespace ReeperCommon
             
 
             /// <summary>
-            /// Skin to use for this window. Default is HighLogic.Skin
+            /// Default skin to use for DraggableWindows (default is HighLogic.Skin if nothing set)
             /// </summary>
-            public static GUISkin Skin
+            public static GUISkin DefaultSkin
             {
                 get
                 {
-                    return skin ?? HighLogic.Skin;
+                    return defaultSkin ?? HighLogic.Skin;
                 }
                 set
                 {
-                    skin = value;
+                    defaultSkin = value;
                 }
             }
-            private static GUISkin skin;
+            private static GUISkin defaultSkin;
+
 
             #endregion
 
