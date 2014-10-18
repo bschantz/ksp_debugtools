@@ -445,6 +445,7 @@ namespace ReeperCommon
                 GameEvents.onHideUI.Add(OnHideUI);
                 GameEvents.onShowUI.Add(OnShowUI);
 
+                Log.Debug("DraggableWindow {0} Awake", Title);
 #if DEBUG
                 // if debugging, register for our own events so we can see when they're being fired
                 //OnVisibilityChange += OnVisibilityChangedEvent;
@@ -453,6 +454,11 @@ namespace ReeperCommon
 #endif
             }
 
+
+            private void Start()
+            {
+                Log.Debug("DraggableWindow {0} Start", Title);
+            }
 
 
             /// <summary>
@@ -674,7 +680,10 @@ namespace ReeperCommon
                         OnVisibilityChange(value);
 
                     visible = value;
-                    
+
+                    if (gameObject.activeInHierarchy != visible && visible == false)
+                        OnClosed();
+
                     gameObject.SetActive(visible);
                 }
             }
@@ -820,6 +829,54 @@ namespace ReeperCommon
 #endif
 
             #endregion
+
+#region save/load
+
+
+            /// <summary>
+            /// Save window position into specified ConfigNode
+            /// </summary>
+            /// <param name="node"></param>
+            public void SaveInto(ConfigNode node)
+            {
+                if (node != null)
+                {
+                    node.Set("WindowX", windowRect.x);
+                    node.Set("WindowY", windowRect.y);
+
+                    if (!node.HasValue("WindowX")) Log.Error("SaveInto: something is wrong with this method");
+
+                    Log.Debug("DraggableWindow.SaveInto: Saved window {0} as ConfigNode {1}", Title, node.ToString());
+                }
+                else Log.Warning("GuiUtil.DraggableWindow: Can't save into null ConfigNode");
+            }
+
+           
+
+            /// <summary>
+            /// Load window position from specified ConfigNode
+            /// </summary>
+            /// <param name="node"></param>
+            /// <returns></returns>
+            public bool LoadFrom(ConfigNode node)
+            {
+                if (node != null)
+                {
+                    windowRect.x = node.Parse<float>("WindowX", Screen.width * 0.5f - windowRect.width * 0.5f);
+                    windowRect.y = node.Parse<float>("WindowY", Screen.height * 0.5f - windowRect.height * 0.5f);
+
+#if DEBUG
+                    Log.Debug("DraggableWindow: Window {0} loaded position {1}", Title, new Vector2(windowRect.x, windowRect.y).ToString());
+#endif
+                    return node.HasValue("WindowX") && node.HasValue("WindowY");
+                }
+                else
+                {
+                    Log.Warning("GuiUtil.DraggableWindow: Can't load from null ConfigNode");
+                    return false;
+                }
+            }
+#endregion
         }
     }
 }

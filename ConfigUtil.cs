@@ -171,6 +171,8 @@ namespace ReeperCommon
                 if (!node.HasValue(valueName))
                 {
                     Log.Error("ConfigUtil.Parse<{0}>: Node does not have a value named {1}", typeof(T).FullName, valueName);
+                    Log.Debug("ConfigNode = {0}", node.ToString());
+
                     return defaultValue;
                 }
                 else
@@ -240,10 +242,21 @@ namespace ReeperCommon
             return node.GetValue(valueName);
         }
 
-        //public static void Set(this ConfigNode node, string valueName, string value)
-        //{
-        //    if (!node.SetValue(valueName, value)) node.SetValue(valueName, value);
-        //}
+
+        public static void Set(this ConfigNode node, string valueName, string value)
+        {
+            // something seems to be broken with ConfigNode.SetValue
+            //if (!node.SetValue(valueName, value)) node.SetValue(valueName, value);
+
+            if (node.HasValue(valueName))
+                node.SetValue(valueName, value);
+            else node.AddValue(valueName, value);
+        }
+
+        public static void Set<T>(this ConfigNode node, string valueName, T value)
+        {
+            node.Set(valueName, value.ToString());
+        }
 
         //public static bool ParseRect(string strRect, out Rect rect)
         //{
@@ -447,7 +460,7 @@ namespace ReeperCommon
         internal interface IConfigNodeTypeFormatter
         {
             string Serialize(object obj);
-            bool Deserialize(object obj, string value);
+            object Deserialize(object obj, string value);
         }
 
 
@@ -463,14 +476,21 @@ namespace ReeperCommon
             {
                 public string Serialize(object obj)
                 {
+                    Log.Debug("Vector2Formatter.Serialize: got " + obj.ToString());
                     return KSPUtil.WriteVector((Vector2)obj);
                 }
 
-                public bool Deserialize(object obj, string value)
+                public object Deserialize(object obj, string value)
                 {
+                    Log.Debug("Vector2Formatter.Deserialize: got value " + value);
                     var v = (Vector2)obj;
                     v = KSPUtil.ParseVector2(value);
-                    return true;
+
+                   // v.x = parsed.x;
+                    //v.y = parsed.y;
+
+                    Log.Debug("Vector2Formatter.Deserialize: Vector is now " + v.ToString());
+                    return v;
                 }
             }
 
@@ -569,7 +589,15 @@ namespace ReeperCommon
                 {
                     Log.Verbose("ConfigNodeTypeHandler: Found formatter for field type {0}, with value '{1}'", typeof(T).Name, value);
 
-                    return handlers[typeof(T)].Deserialize(obj, value);
+                    Log.Debug("Obj before formatter: " + obj.ToString());
+                    object tmp = handlers[typeof(T)].Deserialize(obj, value);
+
+                    if (tmp != null)
+                    {
+                        Log.Debug("Obj after formatter: " + tmp.ToString());
+                        obj = (T)tmp; return true;
+                    }
+                    else return false;
                 }
                 else
                 {
@@ -616,7 +644,7 @@ namespace ReeperCommon
             /// <param name="obj"></param>
             /// <param name="typeFormatter"></param>
             /// <returns></returns>
-            internal static ConfigNode CreateConfigFromObjectEx(object obj, ConfigNodeTypeHandler typeFormatter = null)
+            internal static ConfigNode CreateConfigFromObjectEx(this object obj, ConfigNodeTypeHandler typeFormatter = null)
             {
                 try
                 {
@@ -636,20 +664,64 @@ namespace ReeperCommon
 
                         if (result != null)
                         {
-                            MethodInfo mi = typeFormatter.GetType().GetMethod("Serialize", BindingFlags.Instance | BindingFlags.NonPublic);
-                            if (mi == null) Log.Error("CreateConfigFromObjectEx: Serialize method not found");
+                            // check for ConfigNodes; they're a special case
+                            if (typeof(ConfigNode).IsAssignableFrom(field.FieldType))
+                            {
+                                Log.Debug("{0} is a ConfigNode", field.Name);
 
-                            MethodInfo serialize = mi.MakeGenericMethod(field.FieldType);
-                            if (serialize == null) Log.Error("CreateConfigFromObjectEx: Failed to create generic method for {0}", field.FieldType.Name);
+                                // store ConfigNode in a subnode (so ConfigNode "test" would be stored in
+                                // a subnode called "test" which then contains a copy of the ConfigNode). Do
+                                // it this way so that any possible name the ConfigNode has doesn't collide
+                                //
+                                // why not rename it to field.name? we're not sure whether the node name matters
+                                // to whichever objects are storing data there and we don't want to impose any 
+                                // arbitrary restrictions if we can avoid doing so
+                                var subnode = new ConfigNode(field.Name);
 
-                            string serialized = serialize.Invoke(typeFormatter, new object[] { result }) as string;
 
-                            if (string.IsNullOrEmpty(serialized))
-                                Log.Warning("ConfigUtil.CreateConfigFromObjectEx: null or empty return value for serialized type {0}", field.FieldType.Name);
+                                //if (ss != null)
+                                //    subnode = subnode.AddNode(ss.Section);
+
+                                var copy = ((ConfigNode)Convert.ChangeType(result, typeof(ConfigNode))).CreateCopy();
+                                if (string.IsNullOrEmpty(copy.name)) copy.name = "ConfigNode";
+
+                                Log.Debug("ConfigNode copy = {0}", copy.ToString());
+                                Log.Debug("Original = {0}", ((ConfigNode)Convert.ChangeType(result, typeof(ConfigNode))).ToString());
+
+                                subnode.ClearData();
+
+                                // handle subsection attribute on ConfigNode fields
+                                Subsection ss = attributes.SingleOrDefault(attr => attr is Subsection) as Subsection;
+
+                                if (ss == null)
+                                {
+                                    subnode.AddNode(copy);
+                                }
+                                else
+                                {
+                                    subnode.AddNode(ss.Section).AddNode(copy);
+
+                                    Log.Debug("Subnode with subsection = {0}", subnode.ToString());
+                                }
+                                
+                                n.AddNode(subnode);
+                            }
+                            else
+                            {
+                                MethodInfo mi = typeFormatter.GetType().GetMethod("Serialize", BindingFlags.Instance | BindingFlags.NonPublic);
+                                if (mi == null) Log.Error("CreateConfigFromObjectEx: Serialize method not found");
+
+                                MethodInfo serialize = mi.MakeGenericMethod(field.FieldType);
+                                if (serialize == null) Log.Error("CreateConfigFromObjectEx: Failed to create generic method for {0}", field.FieldType.Name);
+
+                                string serialized = serialize.Invoke(typeFormatter, new object[] { result }) as string;
+
+                                if (string.IsNullOrEmpty(serialized))
+                                    Log.Warning("ConfigUtil.CreateConfigFromObjectEx: null or empty return value for serialized type {0}", field.FieldType.Name);
 
 
-                            //WriteDocAttribute(field, field.Name, n);
-                            WriteValue(n, field.Name, serialized, attributes); 
+                                WriteValue(n, field.Name, serialized, attributes);
+                            }
                         }
                         else Log.Warning("Could not get value for " + field.Name);
                     }
@@ -663,13 +735,17 @@ namespace ReeperCommon
 
                     foreach (PropertyInfo property in properties)
                     {
+                        Log.Verbose("Serializing property {0}, type {1}", property.Name, property.PropertyType.Name);
                         var propertyValue = property.GetGetMethod(true).Invoke(obj, null);
+ 
                         System.Object[] attributes = property.GetCustomAttributes(true);
 
-                        Log.Normal("Value of {0} is {1}", property.Name, propertyValue.ToString());
-
                         MethodInfo mi = typeFormatter.GetType().GetMethod("Serialize", BindingFlags.Instance | BindingFlags.NonPublic);
-                        if (mi == null) Log.Error("CreateConfigFromObjectEx: Serialize method not found");
+                        if (mi == null)
+                        {
+                            Log.Error("CreateConfigFromObjectEx: Serialize method not found");
+                            continue;
+                        }
 
                         MethodInfo serialize = mi.MakeGenericMethod(property.PropertyType);
                         if (serialize == null) Log.Error("CreateConfigFromObjectEx: Failed to create generic method for {0}", property.PropertyType.Name);
@@ -680,10 +756,6 @@ namespace ReeperCommon
                             Log.Warning("ConfigUtil.CreateConfigFromObjectEx: null or empty return value for serialized type {0}", property.PropertyType.Name);
 
 
-                        //WriteDocAttribute(property, property.Name, n);
-
-                        
-                        //n.AddValue(property.Name, serialized);
                         WriteValue(n, property.Name, serialized, attributes); 
                     }
 
@@ -702,6 +774,7 @@ namespace ReeperCommon
             }
 
 
+
             /// <summary>
             /// Deserializes the specified object from a ConfigNode, restoring non-static fields and properties with 
             /// getters and setters
@@ -710,7 +783,7 @@ namespace ReeperCommon
             /// <param name="node"></param>
             /// <param name="typeFormatter"></param>
             /// <returns></returns>
-            internal static bool CreateObjectFromConfigEx(object obj, ConfigNode node, ConfigNodeTypeHandler typeFormatter = null)
+            internal static bool CreateObjectFromConfigEx(this ConfigNode node, object obj, ConfigNodeTypeHandler typeFormatter = null)
             {
                 bool flag = true;
                 typeFormatter = typeFormatter ?? new ConfigNodeTypeHandler();
@@ -719,15 +792,56 @@ namespace ReeperCommon
                 var fields = GetObjectFields(obj);
                 var properties = GetObjectProperties(obj);
 
+                Log.Debug("CreateObjectFromConfig: Found {0} fields and {1} properties", fields.Length, properties.Length);
+
                 #region fields
 
                 foreach (var field in fields)
                 {
                     try
                     {
-                        if (node.HasValue(field.Name))
+                        System.Object[] attributes = field.GetCustomAttributes(true);
+
+                        if (typeof(ConfigNode).IsAssignableFrom(field.FieldType))
                         {
-                            string strValue = node.GetValue(field.Name);
+                            Log.Debug("Field {0} is a ConfigNode", field.Name);
+
+                            if (node.HasNode(field.Name))
+                            {
+                                ConfigNode target = Convert.ChangeType(field.GetValue(obj) ?? new ConfigNode(), typeof(ConfigNode)) as ConfigNode;
+                                ConfigNode subNode = node.GetNode(field.Name);
+
+                                // handle subsection
+                                Subsection ss = attributes.SingleOrDefault(attr => attr is Subsection) as Subsection;
+
+                                if (ss != null)
+                                {
+                                    Log.Debug("ConfigNode field {0} under subsection {1}", field.Name, ss.Section);
+
+                                    if (subNode.HasNode(ss.Section))
+                                        subNode = subNode.GetNode(ss.Section);
+                                    else Log.Warning("Field {0} tagged with Subsection {1} but no such section exists!", field.Name, ss.Section);
+                                }
+                                else Log.Debug("ConfigNode field {0} not under any subsection", field.Name);
+
+                                // remember that subnode is the container for the node we wanted
+                                if (subNode.CountNodes == 1)
+                                {
+                                    ConfigNode data = subNode.nodes[0]; // here's what we're interested in
+
+                                    field.SetValue(obj, data);
+                                    Log.Verbose("Successfully deserialized ConfigNode {0}", field.Name);
+                                } else Log.Warning("Storage for ConfigNode {0} looks like it's missing or wrong", field.Name);
+                            }
+                            else
+                            {
+                                Log.Warning("No serialized ConfigNode found for ConfigNode {0}", field.Name);
+                            }
+                        }
+                        else
+                        {
+
+                            string strValue = ReadValue(node, field.Name, field.GetCustomAttributes(true));
 
                             if (!string.IsNullOrEmpty(strValue))
                             {
@@ -749,14 +863,9 @@ namespace ReeperCommon
                                     Log.Verbose("Deserialized: {0}", field.GetValue(obj));
                                 }
                             }
+                            else Log.Warning("CreateObjectFromConfigEx: Empty/null string found for field named {0}, type {1}", field.Name, field.FieldType.Name);
                         }
-                        else
-                        {
-                            Log.Warning("No value named '{0}' (of type {1}) found in ConfigNode", field.Name, field.FieldType);
-#if DEBUG
-                            Log.Warning("CreateObjectFromConfigEx.ConfigNode = {0}", node.ToString());
-#endif
-                        }
+
                     }
                     catch (Exception e)
                     {
@@ -773,38 +882,39 @@ namespace ReeperCommon
                 {
                     try
                     {
-                        if (node.HasValue(property.Name))
+
+                        string strValue = ReadValue(node, property.Name, property.GetCustomAttributes(true));
+
+                        if (!string.IsNullOrEmpty(strValue))
                         {
-                            string strValue = node.GetValue(property.Name);
+                            Log.Verbose("Parsing property {0}.{1} from {2}", obj.GetType().Name, property.Name, strValue ?? "");
 
-                            if (!string.IsNullOrEmpty(strValue))
+                            MethodInfo mi = typeFormatter.GetType().GetMethod("Deserialize", BindingFlags.Instance | BindingFlags.NonPublic);
+                            if (mi == null) Log.Error("CreateObjectFromConfigEx: Failed to locate Deserialize method");
+
+                            MethodInfo deserialize = mi.MakeGenericMethod(property.PropertyType);
+                            if (deserialize == null) Log.Error("CreateObjectFromConfigEx: Failed to create generic method for property {0}", property.PropertyType.Name);
+
+                            // get existing value
+                            var existing = Convert.ChangeType(property.GetGetMethod(true).Invoke(obj, null), property.PropertyType);
+
+                            //object[] parameters = new object[] { Activator.CreateInstance(property.PropertyType), strValue };
+                            object[] parameters = new object[] { existing, strValue };
+
+                            if (!(bool)deserialize.Invoke(typeFormatter, parameters))
                             {
-                                Log.Verbose("Parsing property {0}.{1} from {2}", obj.GetType().Name, property.Name, strValue ?? "");
-
-                                MethodInfo mi = typeFormatter.GetType().GetMethod("Deserialize", BindingFlags.Instance | BindingFlags.NonPublic);
-                                if (mi == null) Log.Error("CreateObjectFromConfigEx: Failed to locate Deserialize method");
-
-                                MethodInfo deserialize = mi.MakeGenericMethod(property.PropertyType);
-                                if (deserialize == null) Log.Error("CreateObjectFromConfigEx: Failed to create generic method for property {0}", property.PropertyType.Name);
-
-                                // get existing value
-                                var existing = Convert.ChangeType(property.GetGetMethod(true).Invoke(obj, null), property.PropertyType);
-
-                                //object[] parameters = new object[] { Activator.CreateInstance(property.PropertyType), strValue };
-                                object[] parameters = new object[] { existing, strValue };
-
-                                if (!(bool)deserialize.Invoke(typeFormatter, parameters))
-                                {
-                                    flag = false;
-                                    Log.Warning("Failed to deserialize property {0}.{1} from {2}", obj.GetType().Name, property.PropertyType.Name, strValue ?? "");
-                                }
-                                else
-                                {
-                                    // defaultValue now contains deserialized object; instead of just using it directly
-                                    // like we do for fields, we'll use the actual setter 
-                                    property.GetSetMethod(true).Invoke(obj, new object[] { parameters[0] });
-                                }
+                                flag = false;
+                                Log.Warning("Failed to deserialize property {0}.{1} from {2}", obj.GetType().Name, property.PropertyType.Name, strValue ?? "");
                             }
+                            else
+                            {
+                                // use the actual setter 
+                                property.SetValue(obj, parameters[0], BindingFlags.SetProperty | BindingFlags.Instance, null, null, null);
+                            }
+                        }
+                        else
+                        {
+                            Log.Warning("CreateObjectFromConfigEx: Empty/null string found for property named {0}, type {1}", property.Name, property.PropertyType.Name);
                         }
                     }
                     catch (Exception e)
@@ -864,20 +974,6 @@ namespace ReeperCommon
             }
 
 
-            //private static void WriteDocAttribute(object forp, string id, ConfigNode node)
-            //{
-            //    // just using GetCustomAttributes on forp doesn't seem to be enough (?), and won't
-            //    // get the right attribute
-            //    object[] attributes = (object[])forp.GetType().GetMethod("GetCustomAttributes", new Type[] { typeof(bool) }).Invoke(forp, new object[] { true });
-
-            //    foreach (var attr in attributes)
-            //    {
-            //        if (attr is HelpDoc)
-            //            node.AddValue(string.Format("// {0}", id), ((HelpDoc)attr).doc);
-            //    }
-            //}
-
-
 
             /// <summary>
             /// Writes the specified value string into a ConfigNode as a value named valueName. If any of
@@ -896,11 +992,11 @@ namespace ReeperCommon
 
                 if (subsection != null)
                 {
-                    Log.Debug("valueName {0} with value '{1}' should be in a subsection called '{2}'", valueName, value, subsection.Section);
+                    //Log.Debug("valueName {0} with value '{1}' should be in a subsection called '{2}'", valueName, value, subsection.Section);
 
                     if (node.HasNode(subsection.Section))
                     {
-                        Log.Debug("Already has a section of that name");
+                        //Log.Debug("Already has a section of that name");
                         node = node.GetNode(subsection.Section);
                     }
                     else
