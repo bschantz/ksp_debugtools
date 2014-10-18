@@ -834,7 +834,8 @@ namespace ReeperCommon
 
 
             /// <summary>
-            /// Save window position into specified ConfigNode
+            /// Save window position into specified ConfigNode. Why not use our ConfigNode serialization for
+            /// this? Because there are a lot of parameters that shouldn't be saved and it's just messier
             /// </summary>
             /// <param name="node"></param>
             public void SaveInto(ConfigNode node)
@@ -843,8 +844,8 @@ namespace ReeperCommon
                 {
                     node.Set("WindowX", windowRect.x);
                     node.Set("WindowY", windowRect.y);
-
-                    if (!node.HasValue("WindowX")) Log.Error("SaveInto: something is wrong with this method");
+                    node.Set("Draggable", Draggable);
+                    node.Set("Visible", Visible);
 
                     Log.Debug("DraggableWindow.SaveInto: Saved window {0} as ConfigNode {1}", Title, node.ToString());
                 }
@@ -864,6 +865,8 @@ namespace ReeperCommon
                 {
                     windowRect.x = node.Parse<float>("WindowX", Screen.width * 0.5f - windowRect.width * 0.5f);
                     windowRect.y = node.Parse<float>("WindowY", Screen.height * 0.5f - windowRect.height * 0.5f);
+                    Draggable = node.Parse<bool>("Draggable", true);
+                    Visible = node.Parse<bool>("Visible", false);
 
 #if DEBUG
                     Log.Debug("DraggableWindow: Window {0} loaded position {1}", Title, new Vector2(windowRect.x, windowRect.y).ToString());
