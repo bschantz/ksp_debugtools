@@ -512,6 +512,7 @@ namespace ReeperCommon
             {
                 if (ShrinkHeightToFit)
                     windowRect.height = 1f;
+
             }
 
 
@@ -530,6 +531,8 @@ namespace ReeperCommon
                     windowRect = KSPUtil.ClampRectToScreen(windowRect);
 
                 backstop.Move(windowRect);
+
+                //lastRect = new Rect(windowRect);
             }
 
 
@@ -731,6 +734,10 @@ namespace ReeperCommon
                 }
             }
 
+
+            public UIButton Backstop { get { return backstop; } }
+
+            public Rect WindowRect { get { return lastRect; } } // last because windowRect.h will be reset to 1 every frame if shrink to fit
 
 
             /// <summary>
