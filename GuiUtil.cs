@@ -566,7 +566,7 @@ namespace ReeperCommon
                     {
                         Draggable = !Draggable;
                         if (!string.IsNullOrEmpty(ButtonSound))
-                            AudioPlayer.Audio.Play(ButtonSound);
+                            AudioPlayer.Audio.PlayUI(ButtonSound);
 
                         Log.Debug("DraggableWindow {0}", Draggable ? "unlocked" : "locked");
                     }
@@ -583,7 +583,7 @@ namespace ReeperCommon
                     if (GUILayout.Button(CloseTexture, buttonStyle))
                     {
                         if (!string.IsNullOrEmpty(ButtonSound))
-                            AudioPlayer.Audio.Play(ButtonSound);
+                            AudioPlayer.Audio.PlayUI(ButtonSound);
 
                         // note: we do not set window visibility ourselves here because it might
                         // restrict how the derived class can act; for instance, preventing the window

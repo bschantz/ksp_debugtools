@@ -29,9 +29,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using UnityEngine;
-#if DEBUG
 using System.Linq;
-#endif
 
 namespace ReeperCommon
 {
@@ -549,7 +547,7 @@ namespace ReeperCommon
             internal string Serialize<T>(ref T obj)
             {
                 var fieldType = typeof(T);
-                Log.Normal("Serialize.fieldType = " + fieldType.Name);
+                Log.Verbose("Serialize.fieldType = " + fieldType.Name);
 
                 // always prefer type handlers if one is available
                 if (handlers.ContainsKey(fieldType))

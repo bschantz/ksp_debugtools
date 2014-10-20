@@ -27,6 +27,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 //#define AUTOLOAD_MAINMENU
 //#define AUTOLOAD_SPACECENTER
 
+//#define DISABLE_ASTEROID_SPAWNER
 
 using System;
 using System.Collections.Generic;
@@ -2727,6 +2728,7 @@ namespace DebugTools
     
 
 #if DEBUG
+#if DISABLE_ASTEROID_SPAWNER
     // disables asteroid spawner
     [KSPAddonImproved(KSPAddonImproved.Startup.Flight | KSPAddonImproved.Startup.SpaceCenter | KSPAddonImproved.Startup.TrackingStation, false)]
     public class Debug_DisableSpawner : MonoBehaviour
@@ -2744,6 +2746,7 @@ namespace DebugTools
             sm.StopAllCoroutines();
         }
     }
+#endif
 
 #if AUTOLOAD_QUICKSAVE
     //This will kick us into the save called default and set the first vessel active
@@ -2756,7 +2759,7 @@ namespace DebugTools
             if (first)
             {
                 first = false;
-                HighLogic.SaveFolder = "debug";
+                HighLogic.SaveFolder = "debughard";
                 var game = GamePersistence.LoadGame("quicksave", HighLogic.SaveFolder, true, false);
                 if (game != null && game.flightState != null && game.compatible)
                 {

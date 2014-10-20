@@ -202,6 +202,18 @@ namespace ReeperCommon
         }
 
 
+        /// <summary>
+        /// Plays the specified sound using UI volume in KSP
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="delay"></param>
+        /// <returns></returns>
+        public bool PlayUI(string name, float delay = 0f)
+        {
+            return Play(name, GameSettings.UI_VOLUME, delay);
+        }
+
+
 
         /// <summary>
         /// Plays the specified sound. Accepts names either relative to GameData or shorthand, e.g.
