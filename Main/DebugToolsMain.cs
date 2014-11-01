@@ -27,7 +27,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 //#define AUTOLOAD_MAINMENU
 //#define AUTOLOAD_SPACECENTER
 
-//#define DISABLE_ASTEROID_SPAWNER
+#define DISABLE_ASTEROID_SPAWNER
 
 using System;
 using System.Collections.Generic;
@@ -45,6 +45,105 @@ using System.Runtime.InteropServices;
 
 namespace DebugTools
 {
+    //class CloakingDevice : PartModule
+    //{
+    //    [KSPEvent(active = true, guiActive = true, guiActiveEditor = true, guiName = "Cloak")]
+    //    void Cloak()
+    //    {
+    //        part.FindModelTransform("Capsule001").gameObject.SetActive(false);
+
+    //        Events["Uncloak"].active = true;
+    //        Events["Cloak"].active = false;
+    //    }
+
+    //    [KSPEvent(active = false, guiActive = false, guiActiveEditor = true, guiName = "Uncloak")]
+    //    void Uncloak()
+    //    {
+    //        part.FindModelTransform("Capsule001").gameObject.SetActive(true);
+    //        Events["Uncloak"].active = false;
+    //        Events["Cloak"].active = true;
+    //    }
+    //}
+
+    //[KSPAddon(KSPAddon.Startup.SpaceCentre, true)]
+    //class ModelDumper : MonoBehaviour
+    //{
+    //    private void Start()
+    //    {
+    //        PartLoader.getPartInfoByName("GooExperiment").partPrefab.AddModule("CloakingDevice");
+    //        //GameDatabase.Instance.databaseModel.ForEach(go =>
+    //        //{
+    //        //    Log.Debug("Printing hierarchy for Model '{0}'", go.name);
+    //        //    go.PrintComponents();
+
+    //        //    go.GetComponentsInChildren<MeshFilter>(true).ToList().ForEach(mf => Log.Debug("MF on {0} is called {1}", mf.gameObject.name, mf.name));
+    //        //});
+
+    //        Log.Debug("==============================");
+    //        GameDatabase.Instance.GetModelIn("Squad/Parts/Science/GooExperiment").PrintComponents();
+
+    //        Log.Debug("==============================");
+    //        PartLoader.getPartInfoByName("GooExperiment").partPrefab.gameObject.PrintComponents();
+    //    }
+    //}
+
+//[KSPAddon(KSPAddon.Startup.Flight, false)]
+class LineDrawer : MonoBehaviour
+{
+    LineRenderer up, right, forward, sky;
+    Transform owner;
+
+    private System.Collections.IEnumerator Start()
+    {
+        while (!FlightGlobals.ready) yield return 0;
+
+        var rt = FlightGlobals.ActiveVessel.rootPart.transform;
+
+        forward = MakeLine(rt, Color.blue);
+        right = MakeLine(rt, Color.red);
+        up = MakeLine(rt, Color.green);
+        sky = MakeLine(rt, Color.yellow);
+
+        sky.SetWidth(0.2f, 0.1f);
+
+        owner = rt;
+    }
+
+    private LineRenderer MakeLine(Transform parent, Color color)
+    {
+        GameObject line = new GameObject();
+        line.transform.parent = transform;
+
+        var r = line.AddComponent<LineRenderer>();
+
+        r.useWorldSpace = true; // ignores own position, just use coordinates in worldspace as given
+        r.SetWidth(1f, 0.01f);
+        r.SetVertexCount(2);
+
+        r.material = new Material(Shader.Find("Particles/Additive"));
+        r.SetColors(color, color);
+
+        return r;
+    }
+
+    private void Update()
+    {
+        if (!FlightGlobals.ready) return;
+
+        up.SetPosition(0, owner.position);
+        up.SetPosition(1, owner.position + owner.up * 5f);
+
+        right.SetPosition(0, owner.position);
+        right.SetPosition(1, owner.position + owner.right * 5f);
+
+        forward.SetPosition(0, owner.position);
+        forward.SetPosition(1, owner.position + owner.forward * 5f);
+
+        sky.SetPosition(0, owner.position);
+        sky.SetPosition(1, owner.position + FlightGlobals.upAxis * 10f);
+
+    }
+}
 
 //class JellyListener : MonoBehaviour
 //{

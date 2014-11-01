@@ -153,7 +153,7 @@ namespace ReeperCommon
         {
             if (parentNode == null || !parentNode.HasNode("LogSettings"))
             {
-                Verbose("Log.LoadFrom failed, did not find LogSettings in: {0}", parentNode != null ? parentNode.ToString() : "<null ConfigNode>");
+                Warning("Log.LoadFrom failed, did not find LogSettings in: {0}", parentNode != null ? parentNode.ToString() : "<null ConfigNode>");
             }
             else
             {
