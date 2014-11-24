@@ -80,6 +80,11 @@ namespace ReeperCommon
         }
 
 
+        public static Texture2D as2D(this UnityEngine.Texture tex)
+        {
+            return tex as Texture2D;
+        }
+
         public static Material GetEmbeddedMaterial(string resource)
         {
             string contents = string.Empty;

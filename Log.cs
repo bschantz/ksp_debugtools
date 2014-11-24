@@ -43,24 +43,6 @@ namespace ReeperCommon
             All = ~0
         }
 
-        //internal enum LogType
-        //{
-        //    Normal,
-        //    Debug,
-        //    Verbose,
-        //    Performance,
-        //    Warning,
-        //    Error
-        //}
-
-        //public const int Normal = (int)LogMask.Normal;
-        //public const int Debug = (int)LogMask.Debug;
-        //public const int Verbose = (int)LogMask.Verbose;
-        //public const int Performance = (int)LogMask.Performance;
-        //public const int Warning = (int)LogMask.Warning;
-        //public const int Error = (int)LogMask.Error;
-        //public const int All = (int)LogMask.All;
-        //public const int None = (int)LogMask.None;
 
         // default logging levels
 #if DEBUG

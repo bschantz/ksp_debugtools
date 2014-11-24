@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using System.Text;
+using System.IO;
 
 namespace ReeperCommon
 {
@@ -339,6 +341,68 @@ namespace ReeperCommon
 
             return t;
         }
+
+        // http://wiki.unity3d.com/index.php?title=ObjExporter
+        public static string MeshToString(string name, Mesh m, Material[] mats)
+        {
+            StringBuilder sb = new StringBuilder();
+
+            sb.Append("g ").Append(name).Append("\n");
+            foreach (Vector3 v in m.vertices)
+            {
+                sb.Append(string.Format("v {0} {1} {2}\n", v.x, v.y, v.z));
+            }
+            sb.Append("\n");
+            foreach (Vector3 v in m.normals)
+            {
+                sb.Append(string.Format("vn {0} {1} {2}\n", v.x, v.y, v.z));
+            }
+            sb.Append("\n");
+            foreach (Vector3 v in m.uv)
+            {
+                sb.Append(string.Format("vt {0} {1}\n", v.x, v.y));
+            }
+
+            if (mats != null)
+            {
+                for (int material = 0; material < m.subMeshCount; material++)
+                {
+                    sb.Append("\n");
+                    sb.Append("usemtl ").Append(mats[material % mats.Length].name).Append("\n");
+                    sb.Append("usemap ").Append(mats[material % mats.Length].name).Append("\n");
+
+                    int[] triangles = m.GetTriangles(material);
+                    for (int i = 0; i < triangles.Length; i += 3)
+                    {
+                        sb.Append(string.Format("f {0}/{0}/{0} {1}/{1}/{1} {2}/{2}/{2}\n",
+                            triangles[i] + 1, triangles[i + 1] + 1, triangles[i + 2] + 1));
+                    }
+                }
+            }
+            return sb.ToString();
+        }
+
+        public static void MeshToFile(Mesh m, string objName, string filename, Material[] mats)
+        {
+            using (StreamWriter sw = new StreamWriter(filename))
+            {
+                sw.Write(MeshToString(objName, m, mats));
+            }
+        }
+
+        public static void SaveToFile(this Mesh m, string objName, string filename, Material[] mats)
+        {
+            MeshToFile(m, objName, filename, mats);
+        }
+
+        public static void Randomize(this Color c)
+        {
+            c.r = UnityEngine.Random.Range(0f, 1f);
+            c.g = UnityEngine.Random.Range(0f, 1f);
+            c.b = UnityEngine.Random.Range(0f, 1f);
+            c.a = 1f;
+           
+        }
     }
 
     class DebugCollider
@@ -490,6 +554,8 @@ namespace ReeperCommon
 
             debugTexture.Apply();
         }
+
+
     }
 
     class PerformanceTest
@@ -515,6 +581,8 @@ namespace ReeperCommon
             Complete();
         }
     }
+
+
 }
 
 

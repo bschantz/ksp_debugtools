@@ -649,6 +649,9 @@ namespace ReeperCommon
                     ConfigNode n = new ConfigNode(obj.GetType().Name);
                     typeFormatter = typeFormatter ?? new ConfigNodeTypeHandler();
 
+                    
+                    // check if typeformatter has a serialize method for this type
+
 
                     #region serialize fields
 
